@@ -1720,20 +1720,38 @@ export function App() {
     }
   }
 };
-                      
+     const handleUpdateUserRole = async (userId: string, newRole: string) => {
+    if (!userId) return;
+    setProfiles((prev) =>
+      prev.map((p) => {
+        const matchId = p.id || (p as any).p_id;
+        return matchId === userId ? { ...p, role: newRole } : p;
+      })
+    );
+    if (supabase) {
+      try {
+        const { error } = await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
+        if (error) throw error;
+        console.log("User role successfully updated in Supabase!");
+      } catch (err: any) {
+        console.error("Failed to update user role in DB:", err);
+      }
+    }
+  };
 
   // // Admin Control Delivery Partner Function
-const handleUpdateDeliveryPartner = async (
-  userId: string,
-  isDeliveryPartner: boolean,
-  partnerStatus: string,
-  vehicleType?: string,
-  vehicleNumber?: string
-) => {
-  const isApproved = partnerStatus === 'approved' || partnerStatus === 'active';
+  const handleUpdateDeliveryPartner = async (
+    userId: string,
+    isDeliveryPartner: boolean,
+    partnerStatus: string,
+    vehicleType?: string,
+    vehicleNumber?: string
+  ) => {
+    const isApproved = partnerStatus === 'approved' || partnerStatus === 'active';
 
-  // 1. Local UI State ko turant bina delay ke update karein
-  setProfiles((prev) =>
+    // 1. Local UI State ko turant bina delay ke update karein
+    setProfiles((prev) =>
+      
     prev.map((p) => {
       const matchId = p.id || (p as any).p_id;
       if (matchId === userId) {
