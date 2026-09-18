@@ -1226,35 +1226,45 @@ export function App() {
 
       // 9. Withdrawal & Payout Requests
       const { data: payoutsData } = await supabase
-        .from('payout_requests')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (payoutsData && payoutsData.length > 0) {
-        setPayoutRequests(payoutsData);
+  .from('payout_requests')
+  .select('*')
+  .eq('status', 'pending')
+  .order('created_at', { ascending: false });
+      
+      if (payoutsData) {
+  setPayoutRequests(payoutsData);
       }
+      
 
-      // 10. Wallets
-      const { data: walletsData } = await supabase
-        .from('wallets')
-        .select('*');
-      if (walletsData && walletsData.length > 0) {
-        setWallets(walletsData);
-        // Fallback sync active user wallet if wallet_balance was not set
-        setCurrentUser((prev) => {
-          if (!prev) return null;
-          if (typeof prev.wallet_balance !== 'number') {
-            const w = walletsData.find((wal) => wal.user_id === prev.id || wal.user_id === ensureUuid(prev.id));
-            if (w && typeof w.balance === 'number') {
-              const updated = { ...prev, wallet_balance: Number(w.balance) };
-              try {
-                localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-              } catch (_) {}
-              return updated;
-            }
-          }
-          return prev;
-        });
-      }
+          // // 10. Wallets
+    const { data: walletsData } = await supabase
+      .from('wallets')
+      .select('*');
+
+    if (walletsData && walletsData.length > 0) {
+      setWallets(walletsData);
+
+      // Har baar balance update karne ke liye condition hata kar direct fetch mapping lagayi hai
+      setCurrentUser((prev) => {
+        if (!prev) return null;
+        
+        // Sahi wallet record dhoondhein
+        const w = walletsData.find((wal) => wal.user_id === prev.id || wal.id === prev.id);
+        
+        if (w && w.balance !== undefined) {
+          const newBalance = Number(w.balance);
+          
+          // User panel wallet screen sync tabhi hogi jab naya updated data milega
+          const updated = { ...prev, wallet_balance: newBalance };
+          try {
+            localStorage.setItem('mlb_active_user', JSON.stringify(updated));
+          } catch (_) {}
+          return updated;
+        }
+        return prev;
+      });
+    }
+      
 
       // 11. Payout Logs
       const { data: payoutLogsData } = await supabase
@@ -1626,161 +1636,163 @@ export function App() {
 
   // Admin Toggle User PRO
   const handleToggleUserPro = async (user: UserProfile) => {
-    const newProState = !user.is_pro;
-    const newStatus = newProState ? 'active' : 'inactive';
-    const expiryDate = newProState
-      ? new Date(Date.now() + 30 * 86400000).toISOString().split('T')[0]
-      : undefined;
-    const expiryIso = newProState
-      ? new Date(Date.now() + 30 * 86400000).toISOString()
-      : null;
+  if (!user) {
+    console.error("User data nahi mila!");
+    return;
+  }
 
-    setProfiles((prev) =>
-      prev.map((p) =>
-        p.id === user.id || (user.email && p.email === user.email)
-          ? {
-              ...p,
-              is_pro: newProState,
-              pro_status: newStatus,
-              plan_status: newStatus,
-              account_status: 'active',
-              is_approved_by_admin: newProState ? true : p.is_approved_by_admin,
-              pro_expiry: expiryDate,
-              plan_expiry_date: expiryIso,
-            }
-          : p
-      )
-    );
+  // Sahi ID nikalne ka logic (user.id ya p.id)
+  const targetId = user.id || (user as any).p_id;
+  if (!targetId) {
+    console.error("User ID missing hai!");
+    return;
+  }
 
-    if (currentUser && (currentUser.id === user.id || (user.email && currentUser.email === user.email))) {
-      const updated: UserProfile = {
-        ...currentUser,
-        is_pro: newProState,
-        pro_status: newStatus,
-        plan_status: newStatus,
-        account_status: 'active',
-        is_approved_by_admin: newProState ? true : currentUser.is_approved_by_admin,
-        pro_expiry: expiryDate,
-        plan_expiry_date: expiryIso,
-      };
-      setCurrentUser(updated);
-      try {
-        localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-      } catch (_) {}
-    }
+  // 1. Naya state calculate karein (True ka False, False ka True)
+  const currentApprovalState = user.is_approved_by_admin === true;
+  const newApprovalState = !currentApprovalState;
+  const newStatus = newApprovalState ? 'active' : 'inactive';
 
-    if (supabase) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            is_pro: newProState,
-            pro_status: newStatus,
-            plan_status: newStatus,
-            account_status: 'active',
-            is_approved_by_admin: newProState ? true : undefined,
-            pro_expiry: expiryDate,
-            plan_expiry_date: expiryIso,
-          })
-          .eq('id', user.id);
-      } catch (e) {
-        try {
-          await supabase
-            .from('profiles')
-            .update({
-              is_pro: newProState,
-              pro_status: newStatus,
-            })
-            .eq('id', user.id);
-        } catch (err) {
-          console.error('Failed to toggle PRO in database:', err);
-        }
+  // Dates calculate karne ka logic
+  const expiryDate = new Date();
+  expiryDate.setDate(expiryDate.getDate() + 30);
+  const expiryIso = expiryDate.toISOString();
+
+  // 2. Local Frontend UI State ko turant update karein
+  setProfiles((prev) =>
+    prev.map((p) => {
+      const matchId = p.id || (p as any).p_id;
+      if (matchId === targetId || (user.email && p.email === user.email)) {
+        return {
+          ...p,
+          is_pro: newApprovalState,
+          pro_status: newStatus,
+          plan_status: newStatus,
+          account_status: newStatus,
+          is_approved_by_admin: newApprovalState,
+          pro_expiry: newApprovalState ? expiryIso.split('T')[0] : undefined,
+          plan_expiry_date: newApprovalState ? expiryIso : null,
+        };
       }
-    }
-  };
+      return p;
+    })
+  );
 
-  // Admin Update Role
-  const handleUpdateUserRole = async (userId: string, newRole: string) => {
-    setProfiles((prev) =>
-      prev.map((p) => (p.id === userId ? { ...p, role: newRole } : p))
-    );
+  // 3. Supabase Database mein direct Boolean value (TRUE/FALSE) bhejien
+  if (supabase) {
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({
+          is_approved_by_admin: newApprovalState,
+          is_pro: newApprovalState,
+          pro_status: newStatus,
+          plan_status: newStatus,
+          account_status: newStatus,
+          pro_expiry: newApprovalState ? expiryIso.split('T')[0] : null,
+          plan_expiry_date: newApprovalState ? expiryIso : null
+        })
+        .eq('id', targetId);
 
-    if (supabase) {
-      try {
-        await supabase.from('profiles').update({ role: newRole }).eq('id', userId);
-      } catch (e) {
-        console.error('Failed to update role:', e);
-      }
-    }
-  };
+      if (error) throw error;
+      console.log("Supabase mein status successfully update ho gaya!");
 
-  // Delivery Partner Role & Status Update Handler
-  const handleUpdateDeliveryPartner = async (
-    userId: string,
-    isDeliveryPartner: boolean,
-    partnerStatus: string,
-    vehicleType?: string,
-    vehicleNumber?: string
-  ) => {
-    const isApproved = partnerStatus === 'approved' || partnerStatus === 'active';
-    setProfiles((prev) =>
-      prev.map((p) =>
-        p.id === userId
-          ? {
+    } catch (err: any) {
+      console.error('Database update fail ho gaya, purani state rollback kar rahe hain:', err);
+      
+      // Agar fail ho jaye toh UI ko wapas purana kar dein
+      setProfiles((prev) =>
+        prev.map((p) => {
+          const matchId = p.id || (p as any).p_id;
+          if (matchId === targetId || (user.email && p.email === user.email)) {
+            return {
               ...p,
-              is_delivery_partner: isDeliveryPartner,
-              partner_status: partnerStatus,
-              vehicle_type: vehicleType || p.vehicle_type,
-              vehicle_number: vehicleNumber || p.vehicle_number,
-              role: isDeliveryPartner && p.role === 'user' ? 'delivery_partner' : p.role,
-              is_approved_by_admin: isApproved ? true : p.is_approved_by_admin,
-              plan_status: isApproved ? 'active' : p.plan_status,
-              pro_status: isApproved ? 'active' : p.pro_status,
-              is_pro: isApproved ? true : p.is_pro,
-            }
-          : p
-      )
-    );
-
-    if (currentUser && currentUser.id === userId) {
-      const updated: UserProfile = {
-        ...currentUser,
-        is_delivery_partner: isDeliveryPartner,
-        partner_status: partnerStatus,
-        vehicle_type: vehicleType || currentUser.vehicle_type,
-        vehicle_number: vehicleNumber || currentUser.vehicle_number,
-        role: isDeliveryPartner && currentUser.role === 'user' ? 'delivery_partner' : currentUser.role,
-        is_approved_by_admin: isApproved ? true : currentUser.is_approved_by_admin,
-        plan_status: isApproved ? 'active' : currentUser.plan_status,
-        pro_status: isApproved ? 'active' : currentUser.pro_status,
-        is_pro: isApproved ? true : currentUser.is_pro,
-      };
-      setCurrentUser(updated);
-      try {
-        localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-      } catch (_) {}
+              is_approved_by_admin: currentApprovalState,
+              is_pro: currentApprovalState,
+              pro_status: currentApprovalState ? 'active' : 'inactive',
+              plan_status: currentApprovalState ? 'active' : 'inactive',
+              account_status: currentApprovalState ? 'active' : 'inactive',
+            };
+          }
+          return p;
+        })
+      );
     }
+  }
+};
+                      
 
-    if (supabase) {
-      try {
-        await supabase
-          .from('profiles')
-          .update({
-            is_delivery_partner: isDeliveryPartner,
-            partner_status: partnerStatus,
+  // // Admin Control Delivery Partner Function
+const handleUpdateDeliveryPartner = async (
+  userId: string,
+  isDeliveryPartner: boolean,
+  partnerStatus: string,
+  vehicleType?: string,
+  vehicleNumber?: string
+) => {
+  const isApproved = partnerStatus === 'approved' || partnerStatus === 'active';
+
+  // 1. Local UI State ko turant bina delay ke update karein
+  setProfiles((prev) =>
+    prev.map((p) => {
+      const matchId = p.id || (p as any).p_id;
+      if (matchId === userId) {
+        return {
+          ...p,
+          role: isDeliveryPartner ? 'delivery_partner' : p.role,
+          is_approved_by_admin: isApproved,
+          account_status: partnerStatus,
+          pro_status: partnerStatus,
+          plan_status: partnerStatus,
+          vehicle_type: vehicleType || p.vehicle_type,
+          vehicle_number: vehicleNumber || p.vehicle_number,
+        };
+      }
+      return p;
+    })
+  );
+
+  // 2. Supabase Database mein direct data save karein
+  if (supabase) {
+    try {
+      // Profiles table ko strictly binary Boolean value ke sath update karein
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({
+          role: isDeliveryPartner ? 'delivery_partner' : undefined,
+          is_approved_by_admin: isApproved,
+          account_status: partnerStatus,
+          pro_status: partnerStatus,
+          plan_status: partnerStatus,
+        })
+        .eq('id', userId);
+
+      if (profileError) throw profileError;
+
+      // Agar data delivery partner ka hai toh deliverables block ko sync karein
+      if (isDeliveryPartner) {
+        const { error: deliveryError } = await supabase
+          .from('deliveries')
+          .upsert({
+            id: userId,
+            status: partnerStatus,
             vehicle_type: vehicleType,
             vehicle_number: vehicleNumber,
-            is_approved_by_admin: isApproved ? true : undefined,
-            plan_status: isApproved ? 'active' : undefined,
-            pro_status: isApproved ? 'active' : undefined,
-            is_pro: isApproved ? true : undefined,
-          })
-          .eq('id', userId);
-      } catch (e) {
-        console.error('Failed to update delivery partner status in Supabase:', e);
+            updated_at: new Date().toISOString()
+          });
+
+        if (deliveryError) console.error("Deliveries table sync failed:", deliveryError.message);
       }
+
+      console.log("Delivery Partner status successfully updated in Supabase!");
+
+    } catch (err: any) {
+      console.error("Failed to update delivery partner in DB:", err);
+      alert("Database error: " + err.message);
     }
-  };
+  }
+};
+      
 
   // Admin Toggle is_approved_by_admin for Profiles
   const handleToggleProfileApproval = async (profileOrId: UserProfile | string, approved: boolean) => {
@@ -2874,18 +2886,34 @@ export function App() {
             .eq('email', matchedProfile.email);
         }
 
-        await supabase
-          .from('wallets')
-          .upsert(
-            { user_id: validUserId, balance: newBalance, updated_at: updatedTimestamp },
-            { onConflict: 'user_id' }
-          );
+            await supabase
+      .from('wallets')
+      .upsert(
+        { user_id: validUserId, balance: newBalance, updated_at: new Date().toISOString() },
+        { onConflict: 'user_id' }
+      );
 
-        // Refresh profiles from Supabase so the new balance is immediately visible
-        const { data: freshProfiles } = await supabase.from('profiles').select('*');
-        if (freshProfiles && freshProfiles.length > 0) {
-          setProfiles(freshProfiles);
+    // Refresh profiles from Supabase so the new balance is immediately visible
+    const { data: freshProfiles } = await supabase.from('profiles').select('*');
+    if (freshProfiles && freshProfiles.length > 0) {
+      setProfiles(freshProfiles);
+      
+      // CRITICAL FIX: Login user ka active cache balance bhi sync karein
+      setCurrentUser((prev: any) => {
+        if (!prev) return null;
+        const currentUserId = prev.id || prev.p_id;
+        const myFreshData = freshProfiles.find((p) => p.id === currentUserId || p.email === prev.email);
+        if (myFreshData) {
+          const updated = { ...prev, wallet_balance: Number(myFreshData.wallet_balance) };
+          try {
+            localStorage.setItem('mlb_active_user', JSON.stringify(updated));
+          } catch (_) {}
+          return updated;
         }
+        return prev;
+      });
+    }
+        
       } catch (err) {
         console.warn('Supabase wallet update:', err);
       }
