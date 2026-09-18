@@ -1,0 +1,24 @@
+@import "tailwindcss";
+
+@layer base {
+  /* Ensure all text in form fields is sharp, dark, and high-contrast */
+  input,
+  textarea,
+  select {
+    color: #0f172a !important;
+    background-color: #ffffff;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    color: #94a3b8 !important;
+    opacity: 1;
+  }
+
+  input:focus,
+  textarea:focus,
+  select:focus {
+    color: #0f172a !important;
+    background-color: #ffffff !important;
+  }
+}
