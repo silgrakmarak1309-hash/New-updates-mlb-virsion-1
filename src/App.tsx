@@ -1197,23 +1197,44 @@ export function App() {
         setVehicleRegistrations(vehiclesData);
       }
 
-      // 6.5. Local Services & Jobs Registrations
-      const { data: servicesData } = await supabase
-        .from('service_registrations')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (servicesData && servicesData.length > 0) {
-        setServiceRegistrations(servicesData);
-      }
+              // // 6.5. Local Services & Jobs Registrations (Taxi, Cab, Local Service, Jobs)
+    const { data: servicesData } = await supabase
+      .from('service_registrations')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-      // 7. Delivery Orders
-      const { data: deliveriesData } = await supabase
-        .from('delivery_orders')
-        .select('*')
-        .order('created_at', { ascending: false });
-      if (deliveriesData && deliveriesData.length > 0) {
-        setDeliveryOrders(deliveriesData);
+    if (servicesData && servicesData.length > 0) {
+      // Pehle se store records se check karein ki kya kuch naya aaya hai
+      if ((window as any).lastServicesCount !== undefined && servicesData.length > (window as any).lastServicesCount) {
+        try {
+          const audio = new Audio('https://mixkit.co');
+          audio.play();
+        } catch (_) {}
+        alert("🚖 New Service/Taxi Job Alert! Check Local Services or Cab Requests.");
       }
+      (window as any).lastServicesCount = servicesData.length;
+      setServiceRegistrations(servicesData);
+    }
+
+    // // 7. Delivery Orders (Riders & Store Sellers)
+    const { data: deliveriesData } = await supabase
+      .from('delivery_orders')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (deliveriesData && deliveriesData.length > 0) {
+      if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
+        try {
+          const audio = new Audio('https://mixkit.co');
+          audio.play();
+        } catch (_) {}
+        alert("📦 New Delivery Order Alert! Driver / Seller check dashboard.");
+      }
+      (window as any).lastDeliveriesCount = deliveriesData.length;
+      setDeliveryOrders(deliveriesData);
+    }
+      
+      
 
       // 8. Custom Banner Ads
       const { data: bannersData } = await supabase
