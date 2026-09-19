@@ -1727,95 +1727,97 @@ export function App() {
 
   // Admin Toggle User PRO
   const handleToggleUserPro = async (user: UserProfile) => {
-  if (!user) {
-    console.error("User data nahi mila!");
-    return;
-  }
-
-  // Sahi ID nikalne ka logic (user.id ya p.id)
-  const targetId = user.id || (user as any).p_id;
-  if (!targetId) {
-    console.error("User ID missing hai!");
-    return;
-  }
-
-  // 1. Naya state calculate karein (True ka False, False ka True)
-  const currentApprovalState = user.is_approved_by_admin === true;
-  const newApprovalState = !currentApprovalState;
-  const newStatus = newApprovalState ? 'active' : 'inactive';
-
-  // Dates calculate karne ka logic
-  const expiryDate = new Date();
-  expiryDate.setDate(expiryDate.getDate() + 30);
-  const expiryIso = expiryDate.toISOString();
-
-  // 2. Local Frontend UI State ko turant update karein
-  setProfiles((prev) =>
-    prev.map((p) => {
-      const matchId = p.id || (p as any).p_id;
-      if (matchId === targetId || (user.email && p.email === user.email)) {
-        return {
-          ...p,
-          is_pro: newApprovalState,
-          pro_status: newStatus,
-          plan_status: newStatus,
-          account_status: newStatus,
-          is_approved_by_admin: newApprovalState,
-          pro_expiry: newApprovalState ? expiryIso.split('T')[0] : undefined,
-          plan_expiry_date: newApprovalState ? expiryIso : null,
-        };
-      }
-      return p;
-    })
-  );
-
-  // 3. Supabase Database mein direct Boolean value (TRUE/FALSE) bhejien
-  if (supabase) {
-    try {
-      const { error } = await supabase
-        .from('profiles')
-        .update({
-          is_approved_by_admin: newApprovalState,
-          is_pro: newApprovalState,
-          pro_status: newStatus,
-          plan_status: newStatus,
-          account_status: newStatus,
-          pro_expiry: newApprovalState ? expiryIso.split('T')[0] : null,
-          plan_expiry_date: newApprovalState ? expiryIso : null
-        })
-        .eq('id', targetId);
-
-      if (error) throw error;
-      console.log("Supabase mein status successfully update ho gaya!");
-
-    } catch (err: any) {
-      console.error('Database update fail ho gaya, purani state rollback kar rahe hain:', err);
-      
-      // Agar fail ho jaye toh UI ko wapas purana kar dein
-      setProfiles((prev) =>
-        prev.map((p) => {
-          const matchId = p.id || (p as any).p_id;
-          if (matchId === targetId || (user.email && p.email === user.email)) {
-            return {
-              ...p,
-              is_approved_by_admin: currentApprovalState,
-              is_pro: currentApprovalState,
-              pro_status: currentApprovalState ? 'active' : 'inactive',
-              plan_status: currentApprovalState ? 'active' : 'inactive',
-              account_status: currentApprovalState ? 'active' : 'inactive',
-            };
-          }
-          return p;
-        })
-      );
+    if (!user) {
+      console.error("User data nahi mila!");
+      return;
     }
-  }
-};
-     const handleUpdateUserRole = async (userId: string, newRole: string) => {
+
+    // Sahi ID nikalne ka logic (user.id ya _id ya p_id)
+    const targetId = user.id || (user as any)._id || (user as any).p_id;
+    if (!targetId) {
+      console.error("User ID missing hai!");
+      return;
+    }
+
+    // 1. Naya state calculate karein (True ka False, False ka True)
+    const currentApprovalState = user.is_approved_by_admin === true;
+    const newApprovalState = !currentApprovalState;
+    const newStatus: 'active' | 'inactive' = newApprovalState ? 'active' : 'inactive';
+    const currentStatus: 'active' | 'inactive' = currentApprovalState ? 'active' : 'inactive';
+
+    // Dates calculate karne ka logic
+    const expiryDate = new Date();
+    expiryDate.setDate(expiryDate.getDate() + 30);
+    const expiryIso = expiryDate.toISOString();
+
+    // 2. Local Frontend UI State ko turant update karein
+    setProfiles((prev) =>
+      prev.map((p) => {
+        const matchId = p.id || (p as any)._id || (p as any).p_id;
+        if (matchId === targetId || (user.email && p.email && p.email.toLowerCase() === user.email.toLowerCase())) {
+          return {
+            ...p,
+            is_pro: newApprovalState,
+            pro_status: newStatus,
+            plan_status: newStatus,
+            account_status: newStatus,
+            is_approved_by_admin: newApprovalState,
+            pro_expiry: newApprovalState ? expiryIso.split('T')[0] : undefined,
+            plan_expiry_date: newApprovalState ? expiryIso : null,
+          };
+        }
+        return p;
+      })
+    );
+
+    // 3. Supabase Database mein direct Boolean value (TRUE/FALSE) bhejien
+    if (supabase) {
+      try {
+        const { error } = await supabase
+          .from('profiles')
+          .update({
+            is_approved_by_admin: newApprovalState,
+            is_pro: newApprovalState,
+            pro_status: newStatus,
+            plan_status: newStatus,
+            account_status: newStatus,
+            pro_expiry: newApprovalState ? expiryIso.split('T')[0] : null,
+            plan_expiry_date: newApprovalState ? expiryIso : null,
+          })
+          .eq('id', targetId);
+
+        if (error) throw error;
+        console.log("Supabase mein status successfully update ho gaya!");
+
+      } catch (err: any) {
+        console.error('Database update fail ho gaya, purani state rollback kar rahe hain:', err);
+        
+        // 🔥 Sahi Fix: Yeh rollback ab sirf tabhi chalega jab actual me error aayegi
+        setProfiles((prev) =>
+          prev.map((p) => {
+            const matchId = p.id || (p as any)._id || (p as any).p_id;
+            if (matchId === targetId || (user.email && p.email && p.email.toLowerCase() === user.email.toLowerCase())) {
+              return {
+                ...p,
+                is_approved_by_admin: currentApprovalState,
+                is_pro: currentApprovalState,
+                pro_status: currentStatus,
+                plan_status: currentStatus,
+                account_status: currentStatus,
+              };
+            }
+            return p;
+          })
+        );
+      } // <-- Closing brace ab yahan aayega
+    }
+  };
+
+  const handleUpdateUserRole = async (userId: string, newRole: string) => {
     if (!userId) return;
     setProfiles((prev) =>
       prev.map((p) => {
-        const matchId = p.id || (p as any).p_id;
+        const matchId = p.id || (p as any)._id || (p as any).p_id;
         return matchId === userId ? { ...p, role: newRole } : p;
       })
     );
@@ -1839,27 +1841,27 @@ export function App() {
     vehicleNumber?: string
   ) => {
     const isApproved = partnerStatus === 'approved' || partnerStatus === 'active';
+    const normalizedStatus: 'active' | 'inactive' = isApproved ? 'active' : 'inactive';
 
     // 1. Local UI State ko turant bina delay ke update karein
     setProfiles((prev) =>
-      
-    prev.map((p) => {
-      const matchId = p.id || (p as any).p_id;
-      if (matchId === userId) {
-        return {
-          ...p,
-          role: isDeliveryPartner ? 'delivery_partner' : p.role,
-          is_approved_by_admin: isApproved,
-          account_status: partnerStatus,
-          pro_status: partnerStatus,
-          plan_status: partnerStatus,
-          vehicle_type: vehicleType || p.vehicle_type,
-          vehicle_number: vehicleNumber || p.vehicle_number,
-        };
-      }
-      return p;
-    })
-  );
+      prev.map((p) => {
+        const matchId = p.id || (p as any)._id || (p as any).p_id;
+        if (matchId === userId) {
+          return {
+            ...p,
+            role: isDeliveryPartner ? 'delivery_partner' : p.role,
+            is_approved_by_admin: isApproved,
+            account_status: normalizedStatus,
+            pro_status: normalizedStatus,
+            plan_status: normalizedStatus,
+            vehicle_type: vehicleType || p.vehicle_type,
+            vehicle_number: vehicleNumber || p.vehicle_number,
+          };
+        }
+        return p;
+      })
+    );
 
   // 2. Supabase Database mein direct data save karein
   if (supabase) {
