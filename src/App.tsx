@@ -66,6 +66,7 @@ import { CheckoutModal } from './components/CheckoutModal';
 import { PolicyModal } from './components/PolicyModal';
 import { SearchModal } from './components/SearchModal';
 import { GlobalToastContainer, NotificationBell } from './components/NotificationCenter';
+import GlobalNotificationManager, { playNotificationSound } from './components/GlobalNotificationManager';
 import { PolicyType } from './types';
 import { fetchUserCart, addToCart, clearUserCart, getStoredLocalCart } from './lib/cart';
 import {
@@ -1221,10 +1222,14 @@ export function App() {
       // Pehle se store records se check karein ki kya kuch naya aaya hai
       if ((window as any).lastServicesCount !== undefined && servicesData.length > (window as any).lastServicesCount) {
         try {
-          const audio = new Audio('https://mixkit.co');
-          audio.play();
+          playNotificationSound();
         } catch (_) {}
-        alert("🚖 New Service/Taxi Job Alert! Check Local Services or Cab Requests.");
+        dispatchAppToast({
+          title: '🚖 New Service/Taxi Alert',
+          message: 'New ride or service booking received. Check Local Services / Cab requests.',
+          type: 'info',
+          duration: 6000,
+        });
       }
       (window as any).lastServicesCount = servicesData.length;
       setServiceRegistrations(servicesData);
@@ -1239,10 +1244,14 @@ export function App() {
     if (deliveriesData && deliveriesData.length > 0) {
       if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
         try {
-          const audio = new Audio('https://mixkit.co');
-          audio.play();
+          playNotificationSound();
         } catch (_) {}
-        alert("📦 New Delivery Order Alert! Driver / Seller check dashboard.");
+        dispatchAppToast({
+          title: '📦 New Delivery Order Alert',
+          message: 'New delivery order received! Driver / Seller check dashboard.',
+          type: 'info',
+          duration: 6000,
+        });
       }
       (window as any).lastDeliveriesCount = deliveriesData.length;
       setDeliveryOrders(deliveriesData);
@@ -4818,8 +4827,9 @@ export function App() {
         onClose={() => setAppPolicyModalOpen(false)}
       />
 
-      {/* Global In-App Notifications Toast */}
+      {/* Global In-App Notifications Toast & Push Listener */}
       <GlobalToastContainer />
+      <GlobalNotificationManager userRole={currentUser?.role} currentUser={currentUser} />
     </div>
   );
 }
