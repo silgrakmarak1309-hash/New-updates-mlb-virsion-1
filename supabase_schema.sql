@@ -417,33 +417,29 @@ GRANT ALL ON public.users_plans TO anon, authenticated, service_role;
 -- Har subah 12 baje check karne ke liye cron extension enable karein
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
--- Unschedule existing job if already created to prevent duplicate schedule error
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'check-plan-expiry-daily') THEN
-    PERFORM cron.unschedule('check-plan-expiry-daily');
-  END IF;
-EXCEPTION
-  WHEN OTHERS THEN NULL;
-END $$;
+-- Purana job remove karein (agar exist kare)
+SELECT cron.unschedule('check-plan-expiry-daily')
+WHERE EXISTS (
+    SELECT 1 FROM cron.job WHERE jobname = 'check-plan-expiry-daily'
+);
 
 -- Cron job jo automatic check karega
 SELECT cron.schedule(
   'check-plan-expiry-daily',
-  '0 0 * * *', -- Everyday at midnight
-  $$
-  -- 1. Un users ke liye warning push karein jinki expiry me exact 3 din bache hain
+  '0 0 * * *',
+  $cron$
+  -- 1. Un users ko warning bhejein jinka plan 3 din me expire hone wala hai
   INSERT INTO app_notifications (user_id, title, message, type)
   SELECT user_id, '⚠️ Plan Expire Hone Wala Hai!', 'Aapka premium plan 3 din me khatam ho jayega.', 'warning'
   FROM users_plans
   WHERE date(expiry_date) = current_date + interval '3 days';
 
-  -- 2. Un users ke liye alert push karein jinka plan expire ho chuka hai
+  -- 2. Un users ko alert bhejein jinka plan expire ho chuka hai
   INSERT INTO app_notifications (user_id, title, message, type)
   SELECT user_id, '🚫 Plan Expire Ho Chuka Hai!', 'Aapka plan khatam ho gaya hai. Services continue rakhne ke liye renew karein.', 'expired'
   FROM users_plans
   WHERE date(expiry_date) = current_date;
-  $$
+  $cron$
 );
 
 

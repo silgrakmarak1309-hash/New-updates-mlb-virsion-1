@@ -359,19 +359,15 @@ GRANT ALL ON public.users_plans TO anon, authenticated, service_role;
 
 CREATE EXTENSION IF NOT EXISTS pg_cron;
 
-DO $$
-BEGIN
-  IF EXISTS (SELECT 1 FROM cron.job WHERE jobname = 'check-plan-expiry-daily') THEN
-    PERFORM cron.unschedule('check-plan-expiry-daily');
-  END IF;
-EXCEPTION
-  WHEN OTHERS THEN NULL;
-END $$;
+SELECT cron.unschedule('check-plan-expiry-daily')
+WHERE EXISTS (
+    SELECT 1 FROM cron.job WHERE jobname = 'check-plan-expiry-daily'
+);
 
 SELECT cron.schedule(
   'check-plan-expiry-daily',
   '0 0 * * *',
-  $$
+  $cron$
   INSERT INTO app_notifications (user_id, title, message, type)
   SELECT user_id, '⚠️ Plan Expire Hone Wala Hai!', 'Aapka premium plan 3 din me khatam ho jayega.', 'warning'
   FROM users_plans
@@ -381,6 +377,6 @@ SELECT cron.schedule(
   SELECT user_id, '🚫 Plan Expire Ho Chuka Hai!', 'Aapka plan khatam ho gaya hai. Services continue rakhne ke liye renew karein.', 'expired'
   FROM users_plans
   WHERE date(expiry_date) = current_date;
-  $$
+  $cron$
 );
 
