@@ -1225,11 +1225,13 @@ export function App() {
       }
 
       // 9. Withdrawal & Payout Requests
-      const { data: payoutsData } = await supabase
-  .from('payout_requests')
-  .select('*')
-  .eq('status', 'pending')
-  .order('created_at', { ascending: false });
+              const { data: payoutsData } = await supabase
+      .from('payout_requests')
+      .select('*')
+      .in('status', ['pending', 'Pending', 'PENDING'])
+      .order('created_at', { ascending: false });
+      
+      
       
       if (payoutsData) {
   setPayoutRequests(payoutsData);
