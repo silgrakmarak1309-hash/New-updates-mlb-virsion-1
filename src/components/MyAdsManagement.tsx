@@ -141,7 +141,7 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
 
     syncSellerWalletBalance();
 
-    // Add Supabase Realtime subscription on public.profiles
+    // // Add Supabase Realtime subscription on public.profiles
     const channel = supabase
       .channel(`seller-wallet-realtime-${currentUser?.id || 'active'}`)
       .on(
@@ -159,7 +159,8 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
               (currentUser?.email && newRow.email && newRow.email.toLowerCase() === currentUser.email.toLowerCase()) ||
               newRow.email?.toLowerCase() === 'grejamarak@gmail.com';
 
-            if (isMatch && typeof newRow.wallet_balance === 'number') {
+            if (isMatch && newRow.wallet_balance !== undefined && newRow.wallet_balance !== null) {
+              // Strict typeof condition hatakar directly data handle karein
               setProfileWalletBalance(Number(newRow.wallet_balance));
             }
           }
@@ -175,9 +176,7 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
     };
   }, [currentUser?.id, currentUser?.email]);
 
-  const currentBaseBalance = profileWalletBalance !== null
-    ? profileWalletBalance
-    : (Number(currentUser?.wallet_balance) || 500);
+    const currentBaseBalance = Number(profileWalletBalance ?? currentUser?.wallet_balance ?? 0);
 
   const availableWalletBalance = Math.max(
     0,
