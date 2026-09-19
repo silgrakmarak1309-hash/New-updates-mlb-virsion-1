@@ -1266,31 +1266,29 @@ export function App() {
           .select('*')
           .order('created_at', { ascending: false });
 
-        if (deliveriesData && deliveriesData.length > 0) {
-          if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
-            
-            const newestDelivery = deliveriesData[0]; // Sabse naya order check karne ke liye
-            const isAdmin = currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
-            const isMyOrder = newestDelivery?.user_id === currentUser?.id;
+          if (deliveriesData && deliveriesData.length > 0) {
+      if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
+        
+        const newestDelivery = deliveriesData[0]; // Sabse naya order check karne ke liye
+        const isAdmin = authUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
+        const isMyOrder = authUser && newestDelivery?.user_id === authUser.id;
 
-            // Admin ko saare orders aur Buyer ko sirf uska apna order dikhega
-            if (isAdmin || isMyOrder) {
-              try {
-                playNotificationSound();
-              } catch (_) {}
-              dispatchAppToast({
-                title: isMyOrder ? '🛍️ Aapka Order Confirm Hua!' : '📦 New Delivery Order Alert',
-                message: isMyOrder ? 'Aapka order successfully place ho gaya hai.' : 'New delivery order received! Driver / Seller check dashboard.',
-                type: 'info',
-                duration: 6000,
-              });
-            }
-          }
-          (window as any).lastDeliveriesCount = deliveriesData.length;
-          setDeliveryOrders(deliveriesData);
+        // Admin ko saare orders aur Buyer ko sirf uska apna order dikhega
+        if (isAdmin || isMyOrder) {
+          try {
+            playNotificationSound();
+          } catch (_) {}
+          dispatchAppToast({
+            title: isMyOrder ? '🛍️ Aapka Order Confirm Hua!' : '📦 New Delivery Order Alert',
+            message: isMyOrder ? 'Aapka order successfully place ho gaya hai.' : 'New delivery order received! Driver / Seller check dashboard.',
+            type: 'info',
+            duration: 6000,
+          });
         }
-      
-      
+      }
+      (window as any).lastDeliveriesCount = deliveriesData.length;
+      setDeliveryOrders(deliveriesData);
+          }
       
 
       // 8. Custom Banner Ads
