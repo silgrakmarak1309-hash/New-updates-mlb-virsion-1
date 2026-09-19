@@ -63,11 +63,13 @@ export default function GlobalNotificationManager({
 }: GlobalNotificationManagerProps) {
   useEffect(() => {
     // 1. Safe Web Notification Permission Check
-    if (typeof window !== 'undefined' && 'Notification' in window) {
-      if (Notification.permission === 'default') {
-        Notification.requestPermission().catch(() => {});
+    try {
+      if (typeof window !== 'undefined' && 'Notification' in window) {
+        if (Notification.permission === 'default') {
+          Notification.requestPermission().catch(() => {});
+        }
       }
-    }
+    } catch (_) {}
 
     // Role calculations (Supports both lowercase and uppercase variations)
     const normalizedRole = (userRole || currentUser?.role || '').toLowerCase().trim();

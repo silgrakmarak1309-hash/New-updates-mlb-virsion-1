@@ -1212,14 +1212,13 @@ export function App() {
         setVehicleRegistrations(vehiclesData);
       }
 
-              // // 6.5. Local Services & Jobs Registrations (Taxi, Cab, Local Service, Jobs)
+    // 6.5. Local Services & Jobs Registrations (Taxi, Cab, Local Service, Jobs)
     const { data: servicesData } = await supabase
       .from('service_registrations')
       .select('*')
       .order('created_at', { ascending: false });
 
     if (servicesData && servicesData.length > 0) {
-      // Pehle se store records se check karein ki kya kuch naya aaya hai
       if ((window as any).lastServicesCount !== undefined && servicesData.length > (window as any).lastServicesCount) {
         try {
           playNotificationSound();
@@ -1231,47 +1230,45 @@ export function App() {
           duration: 6000,
         });
       }
-      
-                // // // 6.7. Realtime Withdrawal / Payout Requests Notification Sync
-          const { data: latestPayoutsData } = await supabase
-            .from('payout_requests')
-            .select('*')
-            .order('created_at', { ascending: false });
+      (window as any).lastServicesCount = servicesData.length;
+      setServiceRegistrations(servicesData);
+    }
 
-                    if (latestPayoutsData && latestPayoutsData.length > 0) {
-            if ((window as any).lastPayoutsCount !== undefined && latestPayoutsData.length > (window as any).lastPayoutsCount) {
-              // Sirf Admin ko hi withdrawal ka notification milega
-              if (currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') {
-                try {
-                  playNotificationSound();
-                } catch (_) {}
-                dispatchAppToast({
-                  title: '💰 Naya Withdrawal Request!',
-                  message: 'Ek seller ne amount withdrawal ke liye request ki hai.',
-                  type: 'info',
-                  duration: 6000,
-                });
-              }
-            }
-            (window as any).lastPayoutsCount = latestPayoutsData.length;
-          }
+    // 6.7. Realtime Withdrawal / Payout Requests Notification Sync
+    const { data: latestPayoutsData } = await supabase
+      .from('payout_requests')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-          (window as any).lastServicesCount = servicesData.length;
-          setServiceRegistrations(servicesData);
+    if (latestPayoutsData && latestPayoutsData.length > 0) {
+      if ((window as any).lastPayoutsCount !== undefined && latestPayoutsData.length > (window as any).lastPayoutsCount) {
+        // Sirf Admin ko hi withdrawal ka notification milega
+        if (currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') {
+          try {
+            playNotificationSound();
+          } catch (_) {}
+          dispatchAppToast({
+            title: '💰 Naya Withdrawal Request!',
+            message: 'Ek seller ne amount withdrawal ke liye request ki hai.',
+            type: 'info',
+            duration: 6000,
+          });
         }
+      }
+      (window as any).lastPayoutsCount = latestPayoutsData.length;
+    }
 
-        // // 7. Delivery Orders (Riders & Store Sellers)
-        const { data: deliveriesData } = await supabase
-          .from('delivery_orders')
-          .select('*')
-          .order('created_at', { ascending: false });
+    // 7. Delivery Orders (Riders & Store Sellers)
+    const { data: deliveriesData } = await supabase
+      .from('delivery_orders')
+      .select('*')
+      .order('created_at', { ascending: false });
 
-          if (deliveriesData && deliveriesData.length > 0) {
+    if (deliveriesData && deliveriesData.length > 0) {
       if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
-        
         const newestDelivery = deliveriesData[0]; // Sabse naya order check karne ke liye
-        const isAdmin = authUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
-        const isMyOrder = authUser && newestDelivery?.user_id === authUser.id;
+        const isAdmin = currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
+        const isMyOrder = Boolean(currentUser && newestDelivery?.user_id === currentUser.id);
 
         // Admin ko saare orders aur Buyer ko sirf uska apna order dikhega
         if (isAdmin || isMyOrder) {
@@ -1288,7 +1285,7 @@ export function App() {
       }
       (window as any).lastDeliveriesCount = deliveriesData.length;
       setDeliveryOrders(deliveriesData);
-          }
+    }
       
 
       // 8. Custom Banner Ads
