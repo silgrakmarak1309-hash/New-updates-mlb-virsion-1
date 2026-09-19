@@ -1739,38 +1739,35 @@ export function App() {
       return;
     }
 
-    // 1. Naya state calculate karein (True ka False, False ka True)
+        // 1. Naya state calculate karein
     const currentApprovalState = user.is_approved_by_admin === true;
     const newApprovalState = !currentApprovalState;
-    const newStatus: 'active' | 'inactive' = newApprovalState ? 'active' : 'inactive';
-    const currentStatus: 'active' | 'inactive' = currentApprovalState ? 'active' : 'inactive';
+    const newStatus = newApprovalState ? 'active' : 'inactive';
 
     // Dates calculate karne ka logic
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
     const expiryIso = expiryDate.toISOString();
 
-    // 2. Local Frontend UI State ko turant update karein
+    // 2. 🔥 INSTANT UI UPDATE LOGIC: Pehle UI instantly update karein bina reload ke
     setProfiles((prev) =>
       prev.map((p) => {
         const matchId = p.id || (p as any)._id || (p as any).p_id;
         if (matchId === targetId || (user.email && p.email && p.email.toLowerCase() === user.email.toLowerCase())) {
           return {
             ...p,
-            is_pro: newApprovalState,
-            pro_status: newStatus,
-            plan_status: newStatus,
-            account_status: newStatus,
             is_approved_by_admin: newApprovalState,
-            pro_expiry: newApprovalState ? expiryIso.split('T')[0] : undefined,
-            plan_expiry_date: newApprovalState ? expiryIso : null,
+            is_pro: newApprovalState,
+            pro_status: newStatus as any,
+            plan_status: newStatus as any,
+            account_status: newStatus as any,
           };
         }
         return p;
       })
     );
 
-    // 3. Supabase Database mein direct Boolean value (TRUE/FALSE) bhejien
+    // 3. Supabase Database mein direct save karein
     if (supabase) {
       try {
         const { error } = await supabase
@@ -1790,9 +1787,9 @@ export function App() {
         console.log("Supabase mein status successfully update ho gaya!");
 
       } catch (err: any) {
-        console.error('Database update fail ho gaya, purani state rollback kar rahe hain:', err);
+        console.error('Database update fail ho gaya, rollback kar rahe hain:', err);
         
-        // 🔥 Sahi Fix: Yeh rollback ab sirf tabhi chalega jab actual me error aayegi
+        // Agar error aayi toh UI ko wapas purani state par rollback karein
         setProfiles((prev) =>
           prev.map((p) => {
             const matchId = p.id || (p as any)._id || (p as any).p_id;
@@ -1801,17 +1798,18 @@ export function App() {
                 ...p,
                 is_approved_by_admin: currentApprovalState,
                 is_pro: currentApprovalState,
-                pro_status: currentStatus,
-                plan_status: currentStatus,
-                account_status: currentStatus,
+                pro_status: currentApprovalState ? 'active' : 'inactive',
+                plan_status: currentApprovalState ? 'active' : 'inactive',
+                account_status: currentApprovalState ? 'active' : 'inactive',
               };
             }
             return p;
           })
         );
-      } // <-- Closing brace ab yahan aayega
+      }
     }
   };
+  
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     if (!userId) return;
