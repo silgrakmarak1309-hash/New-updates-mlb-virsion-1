@@ -934,14 +934,28 @@ export function App() {
     }
   };
 
-  const handleProceedFromCartToCheckout = (
+    const handleProceedFromCartToCheckout = (
     cartItems: CartItem[],
     totalAmount: number,
     deliveryCharge: number
   ) => {
     if (cartItems.length === 0) return;
-    const firstItem = cartItems[0]?.listing;
+    const firstItem = cartItems[0].listing;
     if (firstItem) {
+      // Strict Check: Taxi, Cab, Travelers ya Service category check
+      const cat = (firstItem.category || '').toLowerCase();
+      const isTaxiOrService = cat.includes('cab') || cat.includes('taxi') || cat.includes('travel') || cat.includes('driver');
+
+      if (isTaxiOrService) {
+        // Payment screen par mat bhejo, seedha WhatsApp redirection trigger karo
+        const sellerPhone = firstItem.seller_phone || firstItem.phone || '9876543210';
+        const message = encodeURIComponent(
+          `Hello! Mujhe aapki ride/service book karni hai:\nService: ${firstItem.title}\nPrice: ₹${firstItem.price}`
+        );
+        window.open(`https://wa.me{sellerPhone}?text=${message}`, '_blank');
+        return; // Function ko yahi rok do taaki payment screen na khule
+      }
+
       const summaryListing: Listing = {
         ...firstItem,
         id: cartItems.length === 1 ? firstItem.id : `cart_order_${Date.now()}`,
@@ -959,13 +973,14 @@ export function App() {
         description: `Consolidated Hyperlocal Cart Order (${cartItems.length} Items):\n${cartItems
           .map(
             (i, idx) =>
-              `${idx + 1}. ${i.listing?.title || 'Product'} (x${i.quantity}) - ₹${(Number(i.listing?.price) || 0) * (Number(i.quantity) || 1)}`
+              `idx + 1. {i.listing?.title || 'Product'} (xi.quantity) - ₹{(Number(i.listing?.price) || 0) * (Number(i.quantity) || 1)}`
           )
           .join('\n')}`,
       };
       setSelectedListingForCheckout(summaryListing);
     }
   };
+  
 
   const openAppPolicy = (type: PolicyType) => {
     setAppPolicyModalType(type);
