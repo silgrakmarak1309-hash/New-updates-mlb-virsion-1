@@ -1273,36 +1273,50 @@ export function App() {
       }
       
 
-              // // 10. Profiles Table se Live Wallet Balance Sync Karein
-          const { data: profilesData } = await supabase
-            .from('profiles')
-            .select('id, wallet_balance');
+      // 10. Wallets & Profiles Live Wallet Balance Sync
+      try {
+        const { data: walletsData } = await supabase
+          .from('wallets')
+          .select('*');
+        if (walletsData && walletsData.length > 0) {
+          setWallets(walletsData);
+        }
 
-          if (profilesData && profilesData.length > 0) {
-            // Sahi user ka profile match karke active user state aur local storage sync karein
-            setCurrentUser((prev) => {
-              if (!prev) return null;
+        // Live Profile Wallet Balance Sync for logged-in user
+        const { data: profilesData } = await supabase
+          .from('profiles')
+          .select('id, email, phone, wallet_balance');
 
-              // Logged-in user ki ID se record match karein
-              const userProfile = profilesData.find((prof) => prof.id === prev.id);
+        if (profilesData && profilesData.length > 0) {
+          setCurrentUser((prev) => {
+            if (!prev) return null;
 
-              if (userProfile) {
-                const newBalance = Number(userProfile.wallet_balance || 0);
+            // Logged-in user ki ID, email ya phone se record match karein
+            const userProfile = profilesData.find((prof) =>
+              prof.id === prev.id ||
+              (prev.email && prof.email && prof.email.toLowerCase().trim() === prev.email.toLowerCase().trim()) ||
+              (prev.phone && prof.phone && prof.phone === prev.phone)
+            );
 
-                // Sirf tabhi update karein jab state ka balance database ke balance se alag ho
-                if (prev.wallet_balance !== newBalance) {
-                  const updated = { ...prev, wallet_balance: newBalance };
-                  try {
-                    localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-                  } catch (e) {
-                    console.error("Localstorage sync error:", e);
-                  }
-                  return updated;
+            if (userProfile && typeof userProfile.wallet_balance === 'number') {
+              const newBalance = Number(userProfile.wallet_balance);
+
+              if (prev.wallet_balance !== newBalance) {
+                const updated = { ...prev, wallet_balance: newBalance };
+                try {
+                  localStorage.setItem('mlb_active_user', JSON.stringify(updated));
+                } catch (e) {
+                  console.error('Localstorage sync error:', e);
                 }
+                return updated;
               }
-              return prev;
-            });
-          }
+            }
+            return prev;
+          });
+        }
+      } catch (walletSyncErr) {
+        console.warn('Wallet live balance sync error:', walletSyncErr);
+      }
       
 
       // 11. Payout Logs

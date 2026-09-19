@@ -287,6 +287,16 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
             .update({ wallet_balance: Number(newBal) })
             .eq('email', matchedProfile.email);
         }
+
+        // Also sync wallets table
+        try {
+          await supabase
+            .from('wallets')
+            .upsert(
+              { user_id: activePartnerId, balance: Number(newBal), updated_at: new Date().toISOString() },
+              { onConflict: 'user_id' }
+            );
+        } catch (_) {}
       }
 
       if (onUpdateWalletBalance) {

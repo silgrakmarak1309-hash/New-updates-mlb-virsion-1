@@ -91,48 +91,44 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
 
   // Authoritative wallet balance synchronized with public.profiles.wallet_balance
   const [profileWalletBalance, setProfileWalletBalance] = useState<number | null>(() => {
-    if (typeof currentUser?.wallet_balance === 'number' && currentUser.wallet_balance > 0) {
+    if (typeof currentUser?.wallet_balance === 'number') {
       return currentUser.wallet_balance;
     }
-    // Default to 500 for grejamarak@gmail.com or active seller to ensure instant live ₹500 display
-    return 500;
+    return 0;
   });
+
+  // Keep local state in sync when currentUser prop updates
+  useEffect(() => {
+    if (typeof currentUser?.wallet_balance === 'number') {
+      setProfileWalletBalance(currentUser.wallet_balance);
+    }
+  }, [currentUser?.wallet_balance]);
 
   useEffect(() => {
     let isMounted = true;
     async function syncSellerWalletBalance() {
-      if (!supabase) return;
+      if (!supabase || !currentUser) return;
       try {
-        // Force reading the balance directly from public.profiles.wallet_balance
-        // where logged-in user matches 'grejamarak@gmail.com' or active session
-        const sessionRes = await supabase.auth.getSession();
-        const sessionUserId = sessionRes?.data?.session?.user?.id;
-        const sessionEmail = sessionRes?.data?.session?.user?.email;
+        const targetEmail = currentUser?.email?.toLowerCase().trim();
+        const targetUserId = currentUser?.id;
+        const targetPhone = currentUser?.phone;
 
-        const targetEmail = currentUser?.email || sessionEmail || 'grejamarak@gmail.com';
-        const targetUserId = currentUser?.id || sessionUserId;
-
-        // Query profiles table directly
+        // Query profiles table directly for authoritative balance
         const { data: profilesList, error: profErr } = await supabase
           .from('profiles')
-          .select('id, email, wallet_balance');
+          .select('id, email, phone, wallet_balance');
 
         if (profilesList && profilesList.length > 0 && isMounted) {
-          const matched =
-            profilesList.find((p: any) => p.email && p.email.toLowerCase() === 'grejamarak@gmail.com') ||
-            profilesList.find((p: any) => targetEmail && p.email && p.email.toLowerCase() === targetEmail.toLowerCase()) ||
-            profilesList.find((p: any) => targetUserId && p.id === targetUserId) ||
-            profilesList.find((p: any) => typeof p.wallet_balance === 'number' && p.wallet_balance > 0);
+          const matched = profilesList.find((p: any) =>
+            (targetUserId && p.id === targetUserId) ||
+            (targetEmail && p.email && p.email.toLowerCase().trim() === targetEmail) ||
+            (targetPhone && p.phone && p.phone === targetPhone)
+          );
 
           if (matched && typeof matched.wallet_balance === 'number') {
             setProfileWalletBalance(Number(matched.wallet_balance));
             return;
           }
-        }
-
-        // If not found in profilesList or empty, ensure 500 displays
-        if (isMounted) {
-          setProfileWalletBalance((prev) => (prev !== null ? prev : 500));
         }
       } catch (err) {
         console.warn('Seller wallet direct sync notice:', err);
@@ -153,11 +149,11 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
         },
         (payload: any) => {
           const newRow = payload?.new;
-          if (newRow && isMounted) {
+          if (newRow && isMounted && currentUser) {
             const isMatch =
-              newRow.id === currentUser?.id ||
-              (currentUser?.email && newRow.email && newRow.email.toLowerCase() === currentUser.email.toLowerCase()) ||
-              newRow.email?.toLowerCase() === 'grejamarak@gmail.com';
+              newRow.id === currentUser.id ||
+              (currentUser.email && newRow.email && newRow.email.toLowerCase().trim() === currentUser.email.toLowerCase().trim()) ||
+              (currentUser.phone && newRow.phone && newRow.phone === currentUser.phone);
 
             if (isMatch && newRow.wallet_balance !== undefined && newRow.wallet_balance !== null) {
               // Strict typeof condition hatakar directly data handle karein
@@ -168,15 +164,15 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
       )
       .subscribe();
 
-    const intervalId = setInterval(syncSellerWalletBalance, 4000);
+    const intervalId = setInterval(syncSellerWalletBalance, 3000);
     return () => {
       isMounted = false;
       clearInterval(intervalId);
       supabase.removeChannel(channel);
     };
-  }, [currentUser?.id, currentUser?.email]);
+  }, [currentUser?.id, currentUser?.email, currentUser?.phone]);
 
-    const currentBaseBalance = Number(profileWalletBalance ?? currentUser?.wallet_balance ?? 0);
+  const currentBaseBalance = Number(profileWalletBalance ?? currentUser?.wallet_balance ?? 0);
 
   const availableWalletBalance = Math.max(
     0,
