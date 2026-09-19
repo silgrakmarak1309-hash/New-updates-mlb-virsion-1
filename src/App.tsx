@@ -79,267 +79,11 @@ import {
 } from './lib/notifications';
 
 // Resilient initial data for fast load & offline fallback
-const INITIAL_LISTINGS: Listing[] = [
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380101',
-    title: 'Apple iPhone 14 Pro Max (128GB Deep Purple)',
-    category_name: 'Mobiles & Gadgets',
-    location_name: 'Tura, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 68000,
-    condition: 'Used - Like New',
-    description: '100% battery health, Indian invoice available with Apple box and lightning cable.',
-    phone: '9876543210',
-    whatsapp: '9876543210',
-    images_json: 'https://images.unsplash.com/photo-1695048133142-1a20484d2569?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: true,
-    status: 'active',
-    seller_id: 'usr_admin',
-    seller_name: 'Silgrak Marak',
-    seller_verified: true,
-    views_count: 142,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380102',
-    title: 'Royal Enfield Hunter 350 Dapper Ash (2023)',
-    category_name: 'Vehicles',
-    location_name: 'Shillong, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 135000,
-    condition: 'Used - Like New',
-    description: 'Single owner, only 4,500 kms driven, comprehensive insurance valid till 2028.',
-    phone: '9123456780',
-    whatsapp: '9123456780',
-    images_json: 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: true,
-    status: 'active',
-    seller_id: 'usr_seller2',
-    seller_name: 'Dilseng Sangma',
-    seller_verified: true,
-    views_count: 45,
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380103',
-    title: 'Commercial Land / Plot 5000 Sqft near Main Road',
-    category_name: 'Property & Real Estate',
-    location_name: 'Williamnagar, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 1850000,
-    condition: 'Brand New',
-    description: 'Prime commercial plot with clear title deed, road touch, ideal for warehouse or commercial complex.',
-    phone: '9862012345',
-    whatsapp: '9862012345',
-    images_json: 'https://images.unsplash.com/photo-1500382017468-9049fed747ef?w=800&auto=format&fit=crop&q=80',
-    is_featured: false,
-    is_pro: false,
-    status: 'active',
-    seller_id: 'usr_seller3',
-    seller_name: 'Tengkim Momin',
-    seller_verified: false,
-    views_count: 18,
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380104',
-    title: 'Tura to Guwahati & Shillong 24x7 AC Cab Service',
-    category_name: 'Local Cab & Taxi',
-    location_name: 'Tura, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 2500,
-    condition: 'Verified Service',
-    description: 'Comfortable Dzire & Ertiga cabs for local dropping, airport transfers to Guwahati and Shillong round trips with experienced local driver.',
-    phone: '9876543210',
-    whatsapp: '9876543210',
-    images_json: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: true,
-    status: 'active',
-    seller_id: 'usr_admin',
-    seller_name: 'Silgrak Marak',
-    seller_verified: true,
-    views_count: 89,
-    created_at: new Date(Date.now() - 14400000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380105',
-    title: 'Luxury Force Traveler 17-Seater for Tour & Wedding Trips',
-    category_name: 'Travelers & Tour',
-    location_name: 'Shillong, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 6500,
-    condition: 'Verified Service',
-    description: 'Fully AC 17-seater Tempo Traveler with pushback seats, music system, and roof carrier. Available for Kaziranga, Cherrapunji, Dawki and Meghalaya tours.',
-    phone: '9123456780',
-    whatsapp: '9123456780',
-    images_json: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: true,
-    status: 'active',
-    seller_id: 'usr_seller2',
-    seller_name: 'Dilseng Sangma',
-    seller_verified: true,
-    views_count: 64,
-    created_at: new Date(Date.now() - 28800000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380106',
-    title: 'Daily Auto Rickshaw & Local Bike Parcel / Ride Service',
-    category_name: 'Bike & Auto Rickshaw',
-    location_name: 'Tura Market, Meghalaya',
-    state_name: 'Meghalaya',
-    price: 150,
-    condition: 'Verified Service',
-    description: 'Quick local bazaar pickup, parcel delivery, and passenger auto service across Tura market, Dobasipara, and New Tura areas.',
-    phone: '9862012345',
-    whatsapp: '9862012345',
-    images_json: 'https://images.unsplash.com/photo-1568605117036-5fe5e7bab0b7?w=800&auto=format&fit=crop&q=80',
-    is_featured: false,
-    is_pro: false,
-    status: 'active',
-    seller_id: 'usr_seller3',
-    seller_name: 'Tengkim Momin',
-    seller_verified: false,
-    views_count: 32,
-    created_at: new Date(Date.now() - 43200000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380107',
-    title: 'Marak Traders Retail & Wholesale Grocery Store',
-    category_name: 'Shops',
-    location_name: 'Supermarket, Tura',
-    state_name: 'Meghalaya',
-    price: 50,
-    condition: 'Verified Shop',
-    description: 'All kinds of daily groceries, fresh organic Garo Hills spices, packaged food, and household provisions at wholesale rates.',
-    phone: '9876543210',
-    whatsapp: '9876543210',
-    images_json: 'https://images.unsplash.com/photo-1578916171728-46686eac8d58?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: true,
-    status: 'active',
-    seller_id: 'usr_admin',
-    seller_name: 'Silgrak Marak',
-    seller_verified: true,
-    views_count: 58,
-    created_at: new Date(Date.now() - 18000000).toISOString(),
-  },
-  {
-    id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380108',
-    title: 'Certified Home Electrician, Inverter & Plumbing Service',
-    category_name: 'Local Jobs & Services',
-    location_name: 'Hawakhana, Tura',
-    state_name: 'Meghalaya',
-    price: 350,
-    condition: 'Verified Professional',
-    description: '24x7 local electrical wiring, short circuit fixes, fan/geyser repair, and pipeline plumbing services with warranty.',
-    phone: '9123456780',
-    whatsapp: '9123456780',
-    images_json: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=800&auto=format&fit=crop&q=80',
-    is_featured: true,
-    is_pro: false,
-    status: 'active',
-    seller_id: 'usr_seller2',
-    seller_name: 'Dilseng Sangma',
-    seller_verified: true,
-    views_count: 73,
-    created_at: new Date(Date.now() - 21600000).toISOString(),
-  },
-];
+const INITIAL_LISTINGS: Listing[] = [];
 
-const INITIAL_PROFILES: UserProfile[] = [
-  {
-    id: 'usr_admin',
-    full_name: 'Silgrak Marak (Admin)',
-    email: 'silgrakmarak1309@gmail.com',
-    phone: '9876543210',
-    role: 'admin',
-    is_pro: true,
-    pro_status: 'active',
-    pro_expiry: '2028-12-31',
-    hardware_locked: true,
-    is_delivery_partner: false,
-    partner_status: 'approved',
-    wallet_balance: 4500,
-  },
-  {
-    id: 'usr_seller2',
-    full_name: 'Dilseng Sangma',
-    email: 'dilseng@gmail.com',
-    phone: '9123456780',
-    role: 'delivery_partner',
-    is_pro: true,
-    pro_status: 'active',
-    pro_expiry: '2026-10-15',
-    hardware_locked: true,
-    is_delivery_partner: true,
-    vehicle_type: 'Auto',
-    vehicle_number: 'ML-08-A-4592',
-    partner_status: 'approved',
-    wallet_balance: 3200,
-  },
-  {
-    id: 'usr_seller3',
-    full_name: 'Tengkim Momin',
-    email: 'tengkim@gmail.com',
-    phone: '9862012345',
-    role: 'user',
-    is_pro: false,
-    pro_status: 'inactive',
-    hardware_locked: true,
-    is_delivery_partner: true,
-    vehicle_type: 'Bike',
-    vehicle_number: 'ML-08-B-7712',
-    partner_status: 'pending',
-    wallet_balance: 1850,
-  },
-  {
-    id: 'usr_rider4',
-    full_name: 'Sengbat Sangma',
-    email: 'sengbat@gmail.com',
-    phone: '9774019823',
-    role: 'delivery_partner',
-    is_pro: false,
-    pro_status: 'inactive',
-    hardware_locked: true,
-    is_delivery_partner: true,
-    vehicle_type: 'Scooty',
-    vehicle_number: 'ML-08-E-3390',
-    partner_status: 'approved',
-    wallet_balance: 1200,
-  },
-];
+const INITIAL_PROFILES: UserProfile[] = [];
 
-const INITIAL_RECHARGES: RechargeRequest[] = [
-  {
-    id: 'rec_001',
-    user_name: 'Dilseng Sangma',
-    user_email: 'dilseng@gmail.com',
-    user_phone: '9123456780',
-    plan_name: '1 Month Plan (₹199)',
-    amount: 199,
-    utr: '423985712093',
-    status: 'pending',
-    is_top_pro: false,
-    created_at: new Date(Date.now() - 1800000).toISOString(),
-  },
-  {
-    id: 'rec_002',
-    user_name: 'Silgrak Marak',
-    user_email: 'merilocalbazaar@gmail.com',
-    user_phone: '9876543210',
-    plan_name: '1 Year Plan (₹1,440)',
-    amount: 1440,
-    utr: '419827364512',
-    status: 'approved',
-    is_top_pro: true,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    approved_at: new Date(Date.now() - 86000000).toISOString(),
-  },
-];
+const INITIAL_RECHARGES: RechargeRequest[] = [];
 
 const INITIAL_SETTINGS: AdminSetting[] = [
   { id: 1, key: 'upi_id', value: 'merilocalbazaar@oksbi' },
@@ -356,343 +100,15 @@ const INITIAL_SETTINGS: AdminSetting[] = [
   },
 ];
 
-const INITIAL_SHOP_REGISTRATIONS: ShopRegistration[] = [
-  {
-    id: 'shop_001',
-    user_id: 'usr_admin',
-    user_name: 'Silgrak Marak',
-    user_phone: '9876543210',
-    user_email: 'merilocalbazaar@gmail.com',
-    shop_name: 'Garo Hills Organic Hub & Spices',
-    category: 'Grocery & Daily Needs',
-    shop_id_proof_type: 'Trade License',
-    shop_id_no: 'TL-TURA-2024-8841',
-    owner_name: 'Silgrak Marak',
-    owner_id_type: 'Aadhaar Card',
-    owner_id_no: '9823 4512 7789',
-    owner_id_proof_url: 'https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?w=600&auto=format&fit=crop&q=80',
-    shop_address: 'Shop #4, Super Market Complex, Ring Road, Tura, Meghalaya - 794001',
-    city_locality: 'Tura, West Garo Hills',
-    shop_banner_url: 'https://images.unsplash.com/photo-1555396273-367ea4eb4db5?w=600&auto=format&fit=crop&q=80',
-    description: 'Fresh organic spices, Garo sticky rice, ginger, and wild forest honey.',
-    opening_hours: '8:30 AM - 7:30 PM (Mon-Sat)',
-    payout_upi_id: 'silgrak@oksbi',
-    status: 'approved',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    verified_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'shop_002',
-    user_id: 'usr_seller3',
-    user_name: 'Tengkim Momin',
-    user_phone: '9862012345',
-    user_email: 'tengkim@gmail.com',
-    shop_name: 'Momin Mobile & Laptop Care',
-    category: 'Electronics & Mobile Store',
-    shop_id_proof_type: 'GSTIN',
-    shop_id_no: '17AAACM1234F1Z9',
-    owner_name: 'Tengkim Momin',
-    owner_id_type: 'Voter ID',
-    owner_id_no: 'WXY9821345',
-    owner_id_proof_url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80',
-    shop_address: 'Bazar Ghat Road, Near Police Point, Tura, Meghalaya',
-    city_locality: 'Tura, Meghalaya',
-    shop_banner_url: 'https://images.unsplash.com/photo-1511707171634-5f897ff02aa9?w=600&auto=format&fit=crop&q=80',
-    description: 'Smartphones, accessories, chip level repair and second hand gadgets.',
-    opening_hours: '9:00 AM - 8:00 PM',
-    payout_upi_id: 'tengkim@paytm',
-    status: 'pending',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-];
+const INITIAL_SHOP_REGISTRATIONS: ShopRegistration[] = [];
 
-const INITIAL_VEHICLE_REGISTRATIONS: VehicleRegistration[] = [
-  {
-    id: 'veh_001',
-    user_id: 'usr_seller2',
-    driver_name: 'Dilseng Sangma',
-    driver_phone: '9123456780',
-    driver_whatsapp: '9123456780',
-    driver_email: 'dilseng@gmail.com',
-    vehicle_type: 'Local Cab / Taxi',
-    vehicle_reg_no: 'ML-08-A-4592',
-    vehicle_model: 'Maruti Suzuki Dzire (AC)',
-    vehicle_year: '2023',
-    driving_license_no: 'ML08 20190004512',
-    driving_license_proof_url: 'https://images.unsplash.com/photo-1633265486064-086b219458ec?w=600&auto=format&fit=crop&q=80',
-    vehicle_rc_no: 'ML08A4592',
-    vehicle_photo_url: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=600&auto=format&fit=crop&q=80',
-    operational_route: 'Tura to Guwahati Airport & Local Tura Trips (24x7)',
-    daily_rate_or_fare: '₹3,500 Tura-Guwahati trip',
-    payout_upi_id: 'dilseng@oksbi',
-    status: 'approved',
-    created_at: new Date(Date.now() - 259200000).toISOString(),
-    verified_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-  {
-    id: 'veh_002',
-    user_id: 'usr_seller3',
-    driver_name: 'Tengkim Momin',
-    driver_phone: '9862012345',
-    driver_whatsapp: '9862012345',
-    driver_email: 'tengkim@gmail.com',
-    vehicle_type: 'Traveler (12-26 Seater)',
-    vehicle_reg_no: 'ML-08-C-9814',
-    vehicle_model: 'Force Tempo Traveler (17-Seater AC Luxury)',
-    vehicle_year: '2022',
-    driving_license_no: 'ML08 20210081234',
-    driving_license_proof_url: 'https://images.unsplash.com/photo-1589829545856-d10d557cf95f?w=600&auto=format&fit=crop&q=80',
-    vehicle_rc_no: 'ML08C9814',
-    vehicle_photo_url: 'https://images.unsplash.com/photo-1570125909232-eb263c188f7e?w=600&auto=format&fit=crop&q=80',
-    operational_route: 'Tura - Shillong - Cherrapunji Tour Packages & Wedding Bookings',
-    daily_rate_or_fare: '₹6,500/day outstation',
-    payout_upi_id: 'tengkim@paytm',
-    status: 'pending',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
-const INITIAL_SERVICE_REGISTRATIONS: ServiceRegistration[] = [
-  {
-    id: 'srv_001',
-    user_id: 'usr_seller2',
-    user_name: 'Dilseng Sangma',
-    full_name: 'Dilseng Sangma',
-    phone: '9123456780',
-    whatsapp: '9123456780',
-    category: 'Electrician & Wireman',
-    experience: '5+ Years',
-    estimated_rate: '₹350 / Visit',
-    city_locality: 'Tura, Meghalaya',
-    service_address: 'Ringrey Bazar, Near SBI Main Branch',
-    aadhaar_or_voter_no: '9845 1209 4321',
-    id_proof_url: 'https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=600&auto=format&fit=crop&q=80',
-    bio_skills: 'Licensed house wiring, inverter battery repair, circuit breaker maintenance, and commercial electrical installation.',
-    payout_upi_id: 'dilseng@oksbi',
-    is_approved: true,
-    status: 'approved',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    verified_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'srv_002',
-    user_id: 'usr_seller3',
-    user_name: 'Tengkim Momin',
-    full_name: 'Tengkim Momin',
-    phone: '9862012345',
-    whatsapp: '9862012345',
-    category: 'Plumber & Pipe Fitter',
-    experience: '3-5 Years',
-    estimated_rate: '₹400 / Work',
-    city_locality: 'Tura, West Garo Hills',
-    service_address: 'Hawakhana, Tura',
-    aadhaar_or_voter_no: '8812 5432 9901',
-    id_proof_url: 'https://images.unsplash.com/photo-1504307651254-35680f356dfd?w=600&auto=format&fit=crop&q=80',
-    bio_skills: 'Overhead tank cleaning, bathroom fittings, underground pipeline leak detection, and motor pump installation.',
-    payout_upi_id: 'tengkim@paytm',
-    is_approved: false,
-    status: 'pending',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-];
-
-const INITIAL_DELIVERY_ORDERS: DeliveryOrder[] = [
-  {
-    id: 'ord_del_001',
-    order_number: 'ORD-7812',
-    customer_name: 'Dilseng Sangma',
-    customer_phone: '9862012345',
-    pickup_address: 'Supermarket, Chandmari, Tura',
-    delivery_address: 'Hawakhana Bazaar, Tura, Meghalaya',
-    item_description: 'Organic Fresh Garo Vegetables & Wild Forest Honey',
-    weight_kg: 4,
-    distance_km: 6,
-    terrain_type: 'Hill (5km/L)',
-    total_fare: 220,
-    app_commission: 22,
-    partner_earning: 198,
-    payment_method: 'online_upi',
-    payment_status: 'pending_verification',
-    transaction_id: 'UTR849201948271',
-    fulfillment_type: 'home_delivery',
-    status: 'pending',
-    created_at: new Date(Date.now() - 3600000).toISOString(),
-  },
-  {
-    id: 'ord_del_002',
-    order_number: 'ORD-9421',
-    customer_name: 'Ropesh Marak',
-    customer_phone: '9856098765',
-    pickup_address: 'Ringrey Market, Tura Main Road',
-    delivery_address: 'Phulbari Highway Crossroad, West Garo Hills',
-    item_description: 'Electronics Solar Inverter & Battery Cable Pack',
-    weight_kg: 8,
-    distance_km: 15,
-    terrain_type: 'Plain',
-    total_fare: 240,
-    app_commission: 24,
-    partner_earning: 216,
-    payment_method: 'online_upi',
-    payment_status: 'verified',
-    transaction_id: 'UTR192837465012',
-    fulfillment_type: 'home_delivery',
-    status: 'pending',
-    created_at: new Date(Date.now() - 7200000).toISOString(),
-  },
-  {
-    id: 'ord_del_003',
-    order_number: 'ORD-5104',
-    customer_name: 'Sengman Ch. Momin',
-    customer_phone: '9436123456',
-    pickup_address: 'Dakopgre Craft Village, Tura',
-    delivery_address: 'Danakgre, West Garo Hills',
-    item_description: 'Traditional Handloom Fabric & Garo Dakmanda',
-    weight_kg: 3,
-    distance_km: 8,
-    terrain_type: 'Hill (5km/L)',
-    total_fare: 260,
-    app_commission: 26,
-    partner_earning: 234,
-    payment_method: 'online_upi',
-    payment_status: 'verified',
-    transaction_id: 'UTR582910394821',
-    fulfillment_type: 'home_delivery',
-    status: 'out_for_delivery',
-    delivery_partner_id: 'usr_me1',
-    delivery_partner_name: 'Silgrak Marak',
-    delivery_partner_phone: '9876543210',
-    created_at: new Date(Date.now() - 10800000).toISOString(),
-    accepted_at: new Date(Date.now() - 5400000).toISOString(),
-  },
-  {
-    id: 'ord_del_004',
-    order_number: 'ORD-3329',
-    customer_name: 'Cheana Sangma',
-    customer_phone: '9774012345',
-    pickup_address: 'Tura Civil Hospital Pharmacy',
-    delivery_address: 'Araimile, Tura, Meghalaya',
-    item_description: 'Prescription Medical Care Package',
-    weight_kg: 2,
-    distance_km: 5,
-    terrain_type: 'Hill (5km/L)',
-    total_fare: 175,
-    app_commission: 17.5,
-    partner_earning: 157.5,
-    payment_method: 'online_upi',
-    payment_status: 'verified',
-    transaction_id: 'UTR998877665544',
-    fulfillment_type: 'home_delivery',
-    status: 'delivered',
-    delivery_partner_id: 'usr_me1',
-    delivery_partner_name: 'Silgrak Marak',
-    delivery_partner_phone: '9876543210',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    accepted_at: new Date(Date.now() - 82800000).toISOString(),
-    delivered_at: new Date(Date.now() - 79200000).toISOString(),
-  },
-];
-
-const INITIAL_BANNER_ADS: BannerAd[] = [
-  {
-    id: 'banner_init_001',
-    title: '🚀 Guaranteed Local Express Delivery Across Meghalaya in Under 2 Hours!',
-    image_url: 'https://images.unsplash.com/photo-1607082348824-0a96f2a4b9da?w=1200&auto=format&fit=crop&q=80',
-    target_url: 'https://wa.me/919876543210?text=Hello%20Meri%20Local%20Bazaar%2C%20I%20want%20to%20know%20about%20Express%20Delivery',
-    is_active: true,
-    order_index: 1,
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-  },
-  {
-    id: 'banner_init_002',
-    title: '✨ Become a Verified PRO Merchant • 10x More Leads & Zero Commission!',
-    image_url: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?w=1200&auto=format&fit=crop&q=80',
-    target_url: 'https://wa.me/919876543210?text=Hi%20Admin%2C%20I%20want%20to%20upgrade%20to%20PRO%20Merchant%20Plan',
-    is_active: true,
-    order_index: 2,
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-  },
-];
-
-const INITIAL_PAYOUT_REQUESTS: PayoutRequest[] = [
-  {
-    id: 'payout_001',
-    user_id: 'usr_me1',
-    user_name: 'Silgrak Marak (Rider)',
-    user_phone: '9876543210',
-    user_role: 'Delivery Partner',
-    amount: 1450,
-    upi_id: 'silgrak.marak@oksbi',
-    bank_name: 'State Bank of India',
-    account_no: '39482019482',
-    ifsc_code: 'SBIN0001234',
-    status: 'pending',
-    created_at: new Date(Date.now() - 3600000 * 2).toISOString(),
-    admin_notes: 'Daily delivery fare settlement request',
-  },
-  {
-    id: 'payout_002',
-    user_id: 'usr_seller2',
-    user_name: 'Dilseng Sangma (Shopkeeper)',
-    user_phone: '9123456780',
-    user_role: 'Shop Owner',
-    amount: 3200,
-    upi_id: 'dilseng.sangma@paytm',
-    bank_name: 'HDFC Bank',
-    account_no: '501002349120',
-    ifsc_code: 'HDFC0001201',
-    status: 'pending',
-    created_at: new Date(Date.now() - 3600000 * 5).toISOString(),
-  },
-  {
-    id: 'payout_003',
-    user_id: 'usr_me1',
-    user_name: 'Silgrak Marak (Rider)',
-    user_phone: '9876543210',
-    user_role: 'Delivery Partner',
-    amount: 850,
-    upi_id: 'silgrak.marak@oksbi',
-    status: 'completed',
-    created_at: new Date(Date.now() - 86400000).toISOString(),
-    completed_at: new Date(Date.now() - 82800000).toISOString(),
-  },
-];
-
-const INITIAL_WALLETS: Wallet[] = [
-  { id: 'wal_001', user_id: 'usr_me1', balance: 2300, updated_at: new Date().toISOString() },
-  { id: 'wal_002', user_id: 'usr_seller2', balance: 3200, updated_at: new Date().toISOString() },
-  { id: 'wal_003', user_id: 'usr_seller3', balance: 1850, updated_at: new Date().toISOString() },
-  { id: 'wal_004', user_id: 'usr_rider4', balance: 1200, updated_at: new Date().toISOString() },
-  { id: 'wal_005', user_id: 'usr_admin', balance: 4500, updated_at: new Date().toISOString() },
-  { id: 'wal_006', user_id: 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380001', balance: 5000, updated_at: new Date().toISOString() },
-  { id: 'wal_007', user_id: 'usr_seller1', balance: 3100, updated_at: new Date().toISOString() },
-];
-
-const INITIAL_PAYOUT_LOGS: PayoutLog[] = [
-  {
-    id: 'paylog_001',
-    user_id: 'usr_me1',
-    amount: 850,
-    status: 'paid',
-    payout_upi: 'silgrak.marak@oksbi',
-    transaction_id: 'TXN-98421094',
-    created_at: new Date(Date.now() - 82800000).toISOString(),
-    user_name: 'Silgrak Marak (Rider)',
-    user_phone: '9876543210',
-    role: 'Delivery Partner',
-  },
-  {
-    id: 'paylog_002',
-    user_id: 'usr_seller2',
-    amount: 1500,
-    status: 'paid',
-    payout_upi: 'dilseng.sangma@paytm',
-    transaction_id: 'TXN-87410293',
-    created_at: new Date(Date.now() - 172800000).toISOString(),
-    user_name: 'Dilseng Sangma (Shopkeeper)',
-    user_phone: '9123456780',
-    role: 'Shop Owner',
-  },
-];
+const INITIAL_VEHICLE_REGISTRATIONS: VehicleRegistration[] = [];
+const INITIAL_SERVICE_REGISTRATIONS: ServiceRegistration[] = [];
+const INITIAL_DELIVERY_ORDERS: DeliveryOrder[] = [];
+const INITIAL_BANNER_ADS: BannerAd[] = [];
+const INITIAL_PAYOUT_REQUESTS: PayoutRequest[] = [];
+const INITIAL_WALLETS: Wallet[] = [];
+const INITIAL_PAYOUT_LOGS: PayoutLog[] = [];
 
 type AppRoute = 'user' | 'admin' | 'delivery_register' | 'delivery_dashboard';
 
@@ -1155,13 +571,13 @@ export function App() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (listingsData && listingsData.length > 0) {
+      if (listingsData) {
         setListings(listingsData);
       }
 
       // 2. Profiles
       const { data: profilesData } = await supabase.from('profiles').select('*');
-      if (profilesData && profilesData.length > 0) {
+      if (profilesData) {
         setProfiles(profilesData);
         // Refresh active user wallet balance if present
         setCurrentUser((prev) => {
@@ -1184,7 +600,7 @@ export function App() {
         .select('*')
         .order('created_at', { ascending: false });
 
-      if (rechargesData && rechargesData.length > 0) {
+      if (rechargesData) {
         setRechargeRequests(rechargesData);
       }
 
@@ -1199,7 +615,7 @@ export function App() {
         .from('shop_registrations')
         .select('*')
         .order('created_at', { ascending: false });
-      if (shopsData && shopsData.length > 0) {
+      if (shopsData) {
         setShopRegistrations(shopsData);
       }
 
@@ -1208,7 +624,7 @@ export function App() {
         .from('vehicle_registrations')
         .select('*')
         .order('created_at', { ascending: false });
-      if (vehiclesData && vehiclesData.length > 0) {
+      if (vehiclesData) {
         setVehicleRegistrations(vehiclesData);
       }
 
@@ -1218,7 +634,7 @@ export function App() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (servicesData && servicesData.length > 0) {
+    if (servicesData) {
       if ((window as any).lastServicesCount !== undefined && servicesData.length > (window as any).lastServicesCount) {
         try {
           playNotificationSound();
@@ -1240,7 +656,7 @@ export function App() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (latestPayoutsData && latestPayoutsData.length > 0) {
+    if (latestPayoutsData) {
       if ((window as any).lastPayoutsCount !== undefined && latestPayoutsData.length > (window as any).lastPayoutsCount) {
         // Sirf Admin ko hi withdrawal ka notification milega
         if (currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') {
@@ -1264,7 +680,7 @@ export function App() {
       .select('*')
       .order('created_at', { ascending: false });
 
-    if (deliveriesData && deliveriesData.length > 0) {
+    if (deliveriesData) {
       if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
         const newestDelivery = deliveriesData[0]; // Sabse naya order check karne ke liye
         const isAdmin = currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
@@ -1293,30 +709,27 @@ export function App() {
         .from('banner_ads')
         .select('*')
         .order('order_index', { ascending: true });
-      if (bannersData && bannersData.length > 0) {
+      if (bannersData) {
         setBannerAds(bannersData);
       }
 
       // 9. Withdrawal & Payout Requests
-              const { data: payoutsData } = await supabase
+      const { data: payoutsData } = await supabase
       .from('payout_requests')
       .select('*')
       .in('status', ['pending', 'Pending', 'PENDING'])
       .order('created_at', { ascending: false });
       
-      
-      
       if (payoutsData) {
-  setPayoutRequests(payoutsData);
+        setPayoutRequests(payoutsData);
       }
-      
 
       // 10. Wallets & Profiles Live Wallet Balance Sync
       try {
         const { data: walletsData } = await supabase
           .from('wallets')
           .select('*');
-        if (walletsData && walletsData.length > 0) {
+        if (walletsData) {
           setWallets(walletsData);
         }
 
@@ -1362,7 +775,7 @@ export function App() {
         .from('payout_logs')
         .select('*')
         .order('created_at', { ascending: false });
-      if (payoutLogsData && payoutLogsData.length > 0) {
+      if (payoutLogsData) {
         setPayoutLogs(payoutLogsData);
       }
     } catch (err) {
@@ -1426,6 +839,7 @@ export function App() {
   // User Dashboard & Panel: Instant Real-time Supabase Subscription for public.profiles (Wallet Balance Sync)
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     let isMounted = true;
 
     // Direct fetch of latest data from public.profiles
@@ -1445,7 +859,7 @@ export function App() {
         const targetEmail = activeUser.email?.trim().toLowerCase();
         const targetPhone = activeUser.phone;
 
-        const { data: profilesList, error } = await supabase
+        const { data: profilesList, error } = await client
           .from('profiles')
           .select('*');
 
@@ -1493,15 +907,16 @@ export function App() {
 
     fetchLatestProfileData();
 
-    // Supabase Realtime subscription on public.profiles
-    const profileChannel = supabase
+    // Supabase Realtime subscription on public.profiles (filtered strictly to this user's profile updates)
+    const profileChannel = client
       .channel(`realtime-dashboard-profile-${currentUser?.id || 'active'}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+          filter: currentUser?.id ? `id=eq.${currentUser.id}` : undefined,
         },
         (payload: any) => {
           const newRow = payload?.new;
@@ -1545,9 +960,9 @@ export function App() {
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(profileChannel);
+      client.removeChannel(profileChannel);
     };
-  }, [currentUser?.id, currentUser?.email, currentUser?.phone, userActiveTab]);
+  }, [currentUser?.id, currentUser?.email, currentUser?.phone]);
 
   // Admin Listing Moderation Action
   const handleUpdateListingStatus = async (
@@ -1659,7 +1074,6 @@ export function App() {
       const updatePayload: any = {
         is_pro: true,
         pro_status: 'active',
-        plan_status: 'active',
         account_status: 'active',
         is_approved_by_admin: true,
         plan_name: req.plan_name || 'PRO Monthly Plan',
@@ -1669,9 +1083,8 @@ export function App() {
 
       try {
         if (targetUserId) {
-          try {
-            await supabase.from('profiles').update(updatePayload).eq('id', targetUserId);
-          } catch (_) {
+          const { error: updErr } = await supabase.from('profiles').update(updatePayload).eq('id', targetUserId);
+          if (updErr) {
             await supabase.from('profiles').update({
               is_pro: true,
               pro_status: 'active',
@@ -1682,9 +1095,8 @@ export function App() {
         }
 
         if (targetEmail) {
-          try {
-            await supabase.from('profiles').update(updatePayload).ilike('email', targetEmail);
-          } catch (_) {
+          const { error: updErr } = await supabase.from('profiles').update(updatePayload).ilike('email', targetEmail);
+          if (updErr) {
             await supabase.from('profiles').update({
               is_pro: true,
               pro_status: 'active',
@@ -1694,9 +1106,8 @@ export function App() {
         }
 
         if (targetPhone) {
-          try {
-            await supabase.from('profiles').update(updatePayload).eq('phone', targetPhone);
-          } catch (_) {
+          const { error: updErr } = await supabase.from('profiles').update(updatePayload).eq('phone', targetPhone);
+          if (updErr) {
             await supabase.from('profiles').update({
               is_pro: true,
               pro_status: 'active',
@@ -1739,35 +1150,38 @@ export function App() {
       return;
     }
 
-        // 1. Naya state calculate karein
+    // 1. Naya state calculate karein (True ka False, False ka True)
     const currentApprovalState = user.is_approved_by_admin === true;
     const newApprovalState = !currentApprovalState;
-    const newStatus = newApprovalState ? 'active' : 'inactive';
+    const newStatus: 'active' | 'inactive' = newApprovalState ? 'active' : 'inactive';
+    const currentStatus: 'active' | 'inactive' = currentApprovalState ? 'active' : 'inactive';
 
     // Dates calculate karne ka logic
     const expiryDate = new Date();
     expiryDate.setDate(expiryDate.getDate() + 30);
     const expiryIso = expiryDate.toISOString();
 
-    // 2. 🔥 INSTANT UI UPDATE LOGIC: Pehle UI instantly update karein bina reload ke
+    // 2. Local Frontend UI State ko turant update karein
     setProfiles((prev) =>
       prev.map((p) => {
         const matchId = p.id || (p as any)._id || (p as any).p_id;
         if (matchId === targetId || (user.email && p.email && p.email.toLowerCase() === user.email.toLowerCase())) {
           return {
             ...p,
-            is_approved_by_admin: newApprovalState,
             is_pro: newApprovalState,
-            pro_status: newStatus as any,
-            plan_status: newStatus as any,
-            account_status: newStatus as any,
+            pro_status: newStatus,
+            plan_status: newStatus,
+            account_status: newStatus,
+            is_approved_by_admin: newApprovalState,
+            pro_expiry: newApprovalState ? expiryIso.split('T')[0] : undefined,
+            plan_expiry_date: newApprovalState ? expiryIso : null,
           };
         }
         return p;
       })
     );
 
-    // 3. Supabase Database mein direct save karein
+    // 3. Supabase Database mein direct Boolean value (TRUE/FALSE) bhejien
     if (supabase) {
       try {
         const { error } = await supabase
@@ -1776,20 +1190,31 @@ export function App() {
             is_approved_by_admin: newApprovalState,
             is_pro: newApprovalState,
             pro_status: newStatus,
-            plan_status: newStatus,
             account_status: newStatus,
             pro_expiry: newApprovalState ? expiryIso.split('T')[0] : null,
             plan_expiry_date: newApprovalState ? expiryIso : null,
           })
           .eq('id', targetId);
 
-        if (error) throw error;
+        if (error) {
+          console.warn("Retrying toggle user approval with core fields:", error.message);
+          const { error: fallbackError } = await supabase
+            .from('profiles')
+            .update({
+              is_approved_by_admin: newApprovalState,
+              is_pro: newApprovalState,
+              pro_status: newStatus,
+            })
+            .eq('id', targetId);
+
+          if (fallbackError) throw fallbackError;
+        }
         console.log("Supabase mein status successfully update ho gaya!");
 
       } catch (err: any) {
-        console.error('Database update fail ho gaya, rollback kar rahe hain:', err);
+        console.error('Database update fail ho gaya, purani state rollback kar rahe hain:', err);
         
-        // Agar error aayi toh UI ko wapas purani state par rollback karein
+        // 🔥 Sahi Fix: Yeh rollback ab sirf tabhi chalega jab actual me error aayegi
         setProfiles((prev) =>
           prev.map((p) => {
             const matchId = p.id || (p as any)._id || (p as any).p_id;
@@ -1798,18 +1223,17 @@ export function App() {
                 ...p,
                 is_approved_by_admin: currentApprovalState,
                 is_pro: currentApprovalState,
-                pro_status: currentApprovalState ? 'active' : 'inactive',
-                plan_status: currentApprovalState ? 'active' : 'inactive',
-                account_status: currentApprovalState ? 'active' : 'inactive',
+                pro_status: currentStatus,
+                plan_status: currentStatus,
+                account_status: currentStatus,
               };
             }
             return p;
           })
         );
-      }
+      } // <-- Closing brace ab yahan aayega
     }
   };
-  
 
   const handleUpdateUserRole = async (userId: string, newRole: string) => {
     if (!userId) return;
@@ -1830,7 +1254,7 @@ export function App() {
     }
   };
 
-  // // Admin Control Delivery Partner Function
+  // Admin Control Delivery Partner Function
   const handleUpdateDeliveryPartner = async (
     userId: string,
     isDeliveryPartner: boolean,
@@ -1849,6 +1273,8 @@ export function App() {
           return {
             ...p,
             role: isDeliveryPartner ? 'delivery_partner' : p.role,
+            is_delivery_partner: isDeliveryPartner,
+            partner_status: partnerStatus,
             is_approved_by_admin: isApproved,
             account_status: normalizedStatus,
             pro_status: normalizedStatus,
@@ -1861,46 +1287,70 @@ export function App() {
       })
     );
 
-  // 2. Supabase Database mein direct data save karein
-  if (supabase) {
-    try {
-      // Profiles table ko strictly binary Boolean value ke sath update karein
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({
-          role: isDeliveryPartner ? 'delivery_partner' : undefined,
+    // 2. Supabase Database mein direct data save karein
+    if (supabase) {
+      try {
+        const updatePayload: Record<string, any> = {
+          is_delivery_partner: isDeliveryPartner,
+          partner_status: partnerStatus,
           is_approved_by_admin: isApproved,
-          account_status: partnerStatus,
-          pro_status: partnerStatus,
-          plan_status: partnerStatus,
-        })
-        .eq('id', userId);
+          account_status: normalizedStatus,
+          pro_status: normalizedStatus,
+        };
 
-      if (profileError) throw profileError;
+        if (isDeliveryPartner) {
+          updatePayload.role = 'delivery_partner';
+        }
+        if (vehicleType) updatePayload.vehicle_type = vehicleType;
+        if (vehicleNumber) updatePayload.vehicle_number = vehicleNumber;
 
-      // Agar data delivery partner ka hai toh deliverables block ko sync karein
-      if (isDeliveryPartner) {
-        const { error: deliveryError } = await supabase
-          .from('deliveries')
-          .upsert({
-            id: userId,
-            status: partnerStatus,
-            vehicle_type: vehicleType,
-            vehicle_number: vehicleNumber,
-            updated_at: new Date().toISOString()
-          });
+        const { error: profileError } = await supabase
+          .from('profiles')
+          .update(updatePayload)
+          .eq('id', userId);
 
-        if (deliveryError) console.error("Deliveries table sync failed:", deliveryError.message);
+        if (profileError) {
+          console.warn("Retrying profile update with core fields due to schema notice:", profileError.message);
+          const { error: fallbackError } = await supabase
+            .from('profiles')
+            .update({
+              is_delivery_partner: isDeliveryPartner,
+              partner_status: partnerStatus,
+              is_approved_by_admin: isApproved,
+              role: isDeliveryPartner ? 'delivery_partner' : undefined,
+            })
+            .eq('id', userId);
+
+          if (fallbackError) throw fallbackError;
+        }
+
+        // Agar data delivery partner ka hai toh deliverables block ko sync karein
+        if (isDeliveryPartner) {
+          try {
+            const { error: deliveryError } = await supabase
+              .from('deliveries')
+              .upsert({
+                id: userId,
+                status: partnerStatus,
+                vehicle_type: vehicleType,
+                vehicle_number: vehicleNumber,
+                updated_at: new Date().toISOString()
+              });
+
+            if (deliveryError) console.warn("Deliveries table sync notice:", deliveryError.message);
+          } catch (delErr) {
+            console.warn("Deliveries table sync catch:", delErr);
+          }
+        }
+
+        console.log("Delivery Partner status successfully updated in Supabase!");
+
+      } catch (err: any) {
+        console.error("Failed to update delivery partner in DB:", err);
+        alert("Database error: " + (err.message || "Failed to update delivery partner"));
       }
-
-      console.log("Delivery Partner status successfully updated in Supabase!");
-
-    } catch (err: any) {
-      console.error("Failed to update delivery partner in DB:", err);
-      alert("Database error: " + err.message);
     }
-  }
-};
+  };
       
 
   // Admin Toggle is_approved_by_admin for Profiles
@@ -1941,15 +1391,22 @@ export function App() {
 
     if (supabase) {
       try {
-        await supabase
+        const { error } = await supabase
           .from('profiles')
           .update({
             is_approved_by_admin: approved,
-            plan_status: approved ? 'active' : 'inactive',
             pro_status: approved ? 'active' : 'inactive',
+            account_status: approved ? 'active' : 'inactive',
             is_pro: approved,
           })
           .eq('id', targetId);
+
+        if (error) {
+          await supabase
+            .from('profiles')
+            .update({ is_approved_by_admin: approved })
+            .eq('id', targetId);
+        }
       } catch (e) {
         try {
           await supabase
@@ -2360,29 +1817,30 @@ export function App() {
 
         if (shop?.user_id) {
           try {
-            await supabase
+            const { error: updErr } = await supabase
               .from('profiles')
               .update({
                 is_pro: true,
                 pro_status: 'active',
-                plan_status: 'active',
                 account_status: 'active',
                 is_approved_by_admin: true,
                 shop_name: shop.shop_name,
                 shop_category: shop.category,
               })
               .eq('id', shop.user_id);
-          } catch (_) {
-            await supabase
-              .from('profiles')
-              .update({
-                is_pro: true,
-                pro_status: 'active',
-                is_approved_by_admin: true,
-                shop_name: shop.shop_name,
-              })
-              .eq('id', shop.user_id);
-          }
+
+            if (updErr) {
+              await supabase
+                .from('profiles')
+                .update({
+                  is_pro: true,
+                  pro_status: 'active',
+                  is_approved_by_admin: true,
+                  shop_name: shop.shop_name,
+                })
+                .eq('id', shop.user_id);
+            }
+          } catch (_) {}
         }
       } catch (e) {
         console.error('Approve shop registration:', e);
@@ -2521,28 +1979,29 @@ export function App() {
 
         if (veh?.user_id) {
           try {
-            await supabase
+            const { error: updErr } = await supabase
               .from('profiles')
               .update({
                 is_pro: true,
                 pro_status: 'active',
-                plan_status: 'active',
                 account_status: 'active',
                 is_approved_by_admin: true,
                 vehicle_type: veh.vehicle_type,
                 vehicle_number: veh.vehicle_reg_no,
               })
               .eq('id', veh.user_id);
-          } catch (_) {
-            await supabase
-              .from('profiles')
-              .update({
-                is_pro: true,
-                pro_status: 'active',
-                is_approved_by_admin: true,
-              })
-              .eq('id', veh.user_id);
-          }
+
+            if (updErr) {
+              await supabase
+                .from('profiles')
+                .update({
+                  is_pro: true,
+                  pro_status: 'active',
+                  is_approved_by_admin: true,
+                })
+                .eq('id', veh.user_id);
+            }
+          } catch (_) {}
         }
       } catch (e) {
         console.error('Approve vehicle registration:', e);
@@ -2738,26 +2197,27 @@ export function App() {
 
         if (srv?.user_id) {
           try {
-            await supabase
+            const { error: updErr } = await supabase
               .from('profiles')
               .update({
                 is_pro: true,
                 pro_status: 'active',
-                plan_status: 'active',
                 account_status: 'active',
                 is_approved_by_admin: true,
               })
               .eq('id', srv.user_id);
-          } catch (_) {
-            await supabase
-              .from('profiles')
-              .update({
-                is_pro: true,
-                pro_status: 'active',
-                is_approved_by_admin: true,
-              })
-              .eq('id', srv.user_id);
-          }
+
+            if (updErr) {
+              await supabase
+                .from('profiles')
+                .update({
+                  is_pro: true,
+                  pro_status: 'active',
+                  is_approved_by_admin: true,
+                })
+                .eq('id', srv.user_id);
+            }
+          } catch (_) {}
         }
       } catch (e) {
         console.error('Approve service registration:', e);
@@ -3376,7 +2836,7 @@ export function App() {
       const updatedProfile: UserProfile = {
         ...currentUser,
         id: targetUserId,
-        email: targetEmail || currentUser?.email,
+        email: targetEmail || currentUser?.email || '',
         full_name: data.fullName || currentUser?.full_name || 'Delivery Partner',
         phone: data.phone || currentUser?.phone || '',
         state: data.state || currentUser?.state || 'Meghalaya',
@@ -3396,6 +2856,7 @@ export function App() {
         payout_ifsc_code: data.payoutIfscCode || currentUser?.payout_ifsc_code || '',
         payout_qr_image_url: data.payoutQrImageUrl || currentUser?.payout_qr_image_url || '',
         partner_status: 'pending',
+        is_pro: currentUser?.is_pro ?? false,
         role: currentUser?.role === 'user' || !currentUser?.role ? 'delivery_partner' : currentUser.role,
       };
 
@@ -3562,16 +3023,21 @@ export function App() {
   };
 
   const handleAcceptDeliveryOrder = async (orderId: string) => {
+    if (!currentUser) return;
     const acceptedTime = new Date().toISOString();
+    const partnerId = currentUser.id;
+    const partnerName = currentUser.full_name || 'Delivery Partner';
+    const partnerPhone = currentUser.phone || '9876543210';
+
     setDeliveryOrders((prev) =>
       prev.map((o) =>
         o.id === orderId
           ? {
               ...o,
               status: 'out_for_delivery',
-              delivery_partner_id: currentUser.id,
-              delivery_partner_name: currentUser.full_name || 'Delivery Partner',
-              delivery_partner_phone: currentUser.phone || '9876543210',
+              delivery_partner_id: partnerId,
+              delivery_partner_name: partnerName,
+              delivery_partner_phone: partnerPhone,
               accepted_at: acceptedTime,
             }
           : o
@@ -3584,9 +3050,9 @@ export function App() {
           .from('delivery_orders')
           .update({
             status: 'out_for_delivery',
-            delivery_partner_id: currentUser.id,
-            delivery_partner_name: currentUser.full_name || 'Delivery Partner',
-            delivery_partner_phone: currentUser.phone || '9876543210',
+            delivery_partner_id: partnerId,
+            delivery_partner_name: partnerName,
+            delivery_partner_phone: partnerPhone,
             accepted_at: acceptedTime,
           })
           .eq('id', orderId);

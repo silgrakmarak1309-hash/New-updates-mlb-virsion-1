@@ -47,6 +47,14 @@ BEGIN
     ) THEN
         ALTER TABLE public.profiles ADD COLUMN plan_expiry_date TIMESTAMPTZ DEFAULT NULL;
     END IF;
+
+    -- Add plan_status column (default: 'inactive')
+    IF NOT EXISTS (
+        SELECT 1 FROM information_schema.columns 
+        WHERE table_schema = 'public' AND table_name = 'profiles' AND column_name = 'plan_status'
+    ) THEN
+        ALTER TABLE public.profiles ADD COLUMN plan_status TEXT DEFAULT 'inactive';
+    END IF;
 END $$;
 
 -- Enforce constraints on role and account_status in public.profiles

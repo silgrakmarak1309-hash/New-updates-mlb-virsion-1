@@ -18,6 +18,7 @@ CREATE TABLE IF NOT EXISTS public.profiles (
     role TEXT DEFAULT 'user',
     is_pro BOOLEAN DEFAULT FALSE,
     pro_status TEXT DEFAULT 'inactive',
+    plan_status TEXT DEFAULT 'inactive',
     pro_expiry TIMESTAMPTZ,
     plan_title TEXT,
     hardware_locked BOOLEAN DEFAULT TRUE,

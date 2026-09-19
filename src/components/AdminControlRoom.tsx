@@ -397,7 +397,7 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
             .from('profiles')
             .update({
               is_approved_by_admin: approved,
-              ...(approved ? { plan_status: 'active', pro_status: 'active', is_pro: true } : {}),
+              ...(approved ? { pro_status: 'active', is_pro: true, account_status: 'active' } : {}),
             })
             .eq('id', effectiveId);
 
@@ -695,7 +695,7 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
       partnerProfile?.is_approved_by_admin !== undefined
         ? Boolean(partnerProfile.is_approved_by_admin)
         : fleet.status === 'approved' || !!fleet.is_approved;
-    const fleetEmail = (fleet as any).email || partnerProfile?.email || (fleet.full_name?.toLowerCase().includes('silgrak') ? 'silgrak1309@gmail.com' : undefined);
+    const fleetEmail = (fleet as any).email || partnerProfile?.email || undefined;
     allPartnersList.push({
       id: `fleet_${fleet.id}`,
       userId: fleet.user_id || `usr_fleet_${fleet.id}`,
@@ -727,7 +727,7 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
       partnerProfile?.is_approved_by_admin !== undefined
         ? Boolean(partnerProfile.is_approved_by_admin)
         : shop.status === 'approved';
-    const shopEmail = shop.user_email || partnerProfile?.email || (shop.owner_name?.toLowerCase().includes('silgrak') ? 'silgrak1309@gmail.com' : undefined);
+    const shopEmail = shop.user_email || partnerProfile?.email || undefined;
     allPartnersList.push({
       id: `shop_${shop.id}`,
       userId: shop.user_id || `usr_shop_${shop.id}`,
@@ -759,7 +759,7 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
       partnerProfile?.is_approved_by_admin !== undefined
         ? Boolean(partnerProfile.is_approved_by_admin)
         : veh.status === 'approved';
-    const cabEmail = veh.driver_email || partnerProfile?.email || (veh.driver_name?.toLowerCase().includes('silgrak') ? 'silgrak1309@gmail.com' : undefined);
+    const cabEmail = veh.driver_email || partnerProfile?.email || undefined;
     allPartnersList.push({
       id: `veh_${veh.id}`,
       userId: veh.user_id || `usr_veh_${veh.id}`,
@@ -4298,7 +4298,7 @@ export const AdminControlRoom: React.FC<AdminControlRoomProps> = ({
                           {log.payout_upi && <span>UPI: <strong className="font-mono text-slate-700">{log.payout_upi}</strong></span>}
                           {log.transaction_id && <span>UTR: <strong className="font-mono text-slate-700">{log.transaction_id}</strong></span>}
                           <span>
-                            {new Date(log.created_at).toLocaleDateString('en-IN', {
+                            {new Date(log.created_at || Date.now()).toLocaleDateString('en-IN', {
                               day: 'numeric',
                               month: 'short',
                               year: 'numeric',

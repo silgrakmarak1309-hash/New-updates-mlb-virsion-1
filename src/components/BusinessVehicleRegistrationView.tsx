@@ -301,11 +301,12 @@ export const BusinessVehicleRegistrationView: React.FC<BusinessVehicleRegistrati
 
   useEffect(() => {
     if (!supabase || !currentUser) return;
+    const client = supabase;
     let isMounted = true;
 
     const fetchLiveBalance = async () => {
       try {
-        const { data } = await supabase
+        const { data } = await client
           .from('profiles')
           .select('id, email, phone, wallet_balance');
 
@@ -326,14 +327,15 @@ export const BusinessVehicleRegistrationView: React.FC<BusinessVehicleRegistrati
 
     fetchLiveBalance();
 
-    const channel = supabase
+    const channel = client
       .channel(`biz-wallet-realtime-${currentUser.id || 'current'}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+          filter: currentUser.id ? `id=eq.${currentUser.id}` : undefined,
         },
         (payload: any) => {
           const newRow = payload?.new;
@@ -353,7 +355,7 @@ export const BusinessVehicleRegistrationView: React.FC<BusinessVehicleRegistrati
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [currentUser?.id, currentUser?.email, currentUser?.phone]);
 

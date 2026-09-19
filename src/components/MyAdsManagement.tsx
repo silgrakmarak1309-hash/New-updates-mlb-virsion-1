@@ -105,16 +105,17 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
   }, [currentUser?.wallet_balance]);
 
   useEffect(() => {
+    if (!supabase || !currentUser) return;
+    const client = supabase;
     let isMounted = true;
     async function syncSellerWalletBalance() {
-      if (!supabase || !currentUser) return;
       try {
         const targetEmail = currentUser?.email?.toLowerCase().trim();
         const targetUserId = currentUser?.id;
         const targetPhone = currentUser?.phone;
 
         // Query profiles table directly for authoritative balance
-        const { data: profilesList, error: profErr } = await supabase
+        const { data: profilesList } = await client
           .from('profiles')
           .select('id, email, phone, wallet_balance');
 
@@ -137,15 +138,16 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
 
     syncSellerWalletBalance();
 
-    // // Add Supabase Realtime subscription on public.profiles
-    const channel = supabase
+    // Add Supabase Realtime subscription on public.profiles (filtered strictly to this seller's profile updates)
+    const channel = client
       .channel(`seller-wallet-realtime-${currentUser?.id || 'active'}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+          filter: currentUser?.id ? `id=eq.${currentUser.id}` : undefined,
         },
         (payload: any) => {
           const newRow = payload?.new;
@@ -156,7 +158,6 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
               (currentUser.phone && newRow.phone && newRow.phone === currentUser.phone);
 
             if (isMatch && newRow.wallet_balance !== undefined && newRow.wallet_balance !== null) {
-              // Strict typeof condition hatakar directly data handle karein
               setProfileWalletBalance(Number(newRow.wallet_balance));
             }
           }
@@ -164,11 +165,9 @@ export const MyAdsManagement: React.FC<MyAdsManagementProps> = ({
       )
       .subscribe();
 
-    const intervalId = setInterval(syncSellerWalletBalance, 3000);
     return () => {
       isMounted = false;
-      clearInterval(intervalId);
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [currentUser?.id, currentUser?.email, currentUser?.phone]);
 

@@ -167,6 +167,7 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
   // Fetch latest balance directly from public.profiles and subscribe to Supabase Realtime
   useEffect(() => {
     if (!supabase) return;
+    const client = supabase;
     let isMounted = true;
 
     async function fetchLatestDriverBalance() {
@@ -174,7 +175,7 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
         const targetId = currentUser.id;
         const targetEmail = currentUser.email;
 
-        const { data, error } = await supabase
+        const { data } = await client
           .from('profiles')
           .select('id, email, phone, wallet_balance');
 
@@ -196,15 +197,16 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
 
     fetchLatestDriverBalance();
 
-    // Supabase Realtime subscription on public.profiles
-    const channel = supabase
+    // Supabase Realtime subscription on public.profiles (filtered strictly to this driver's profile updates)
+    const channel = client
       .channel(`driver-wallet-sync-${currentUser.id || 'current'}`)
       .on(
         'postgres_changes',
         {
-          event: '*',
+          event: 'UPDATE',
           schema: 'public',
           table: 'profiles',
+          filter: currentUser.id ? `id=eq.${currentUser.id}` : undefined,
         },
         (payload: any) => {
           const newRow = payload?.new;
@@ -224,7 +226,7 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
 
     return () => {
       isMounted = false;
-      supabase.removeChannel(channel);
+      client.removeChannel(channel);
     };
   }, [currentUser.id, currentUser.email, currentUser.phone]);
 

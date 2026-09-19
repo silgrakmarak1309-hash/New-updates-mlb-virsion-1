@@ -93,7 +93,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
         setIsVerifyingPlan(true);
         let query = supabase
           .from('profiles')
-          .select('id, email, is_pro, pro_status, plan_status, account_status, is_approved_by_admin');
+          .select('id, email, is_pro, pro_status, account_status, is_approved_by_admin');
 
         if (effectiveUid) {
           query = query.eq('id', effectiveUid);
@@ -106,8 +106,8 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
         if (isMounted && data) {
           const isActive = Boolean(
             (data.email && data.email.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') ||
-            (typeof data.plan_status === 'string' &&
-              (data.plan_status.toLowerCase() === 'active' || data.plan_status.toLowerCase() === 'approved')) ||
+            (typeof (data as any).plan_status === 'string' &&
+              ((data as any).plan_status.toLowerCase() === 'active' || (data as any).plan_status.toLowerCase() === 'approved')) ||
             (typeof data.pro_status === 'string' &&
               (data.pro_status.toLowerCase() === 'active' || data.pro_status.toLowerCase() === 'approved')) ||
             data.is_pro === true
@@ -125,7 +125,8 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
 
     // Subscribe to realtime changes on this user's profile so if admin activates plan, user is unblocked immediately
     if (supabase && effectiveUid) {
-      const channel = supabase
+      const client = supabase;
+      const channel = client
         .channel(`profile-plan-check-${effectiveUid}`)
         .on(
           'postgres_changes',
@@ -149,7 +150,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
 
       return () => {
         isMounted = false;
-        supabase.removeChannel(channel);
+        client.removeChannel(channel);
       };
     }
 
