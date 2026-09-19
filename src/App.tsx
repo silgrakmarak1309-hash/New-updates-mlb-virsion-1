@@ -1238,46 +1238,58 @@ export function App() {
             .select('*')
             .order('created_at', { ascending: false });
 
-          if (latestPayoutsData && latestPayoutsData.length > 0) {
+                    if (latestPayoutsData && latestPayoutsData.length > 0) {
             if ((window as any).lastPayoutsCount !== undefined && latestPayoutsData.length > (window as any).lastPayoutsCount) {
+              // Sirf Admin ko hi withdrawal ka notification milega
+              if (currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') {
+                try {
+                  playNotificationSound();
+                } catch (_) {}
+                dispatchAppToast({
+                  title: '💰 Naya Withdrawal Request!',
+                  message: 'Ek seller ne amount withdrawal ke liye request ki hai.',
+                  type: 'info',
+                  duration: 6000,
+                });
+              }
+            }
+            (window as any).lastPayoutsCount = latestPayoutsData.length;
+          }
+
+          (window as any).lastServicesCount = servicesData.length;
+          setServiceRegistrations(servicesData);
+        }
+
+        // // 7. Delivery Orders (Riders & Store Sellers)
+        const { data: deliveriesData } = await supabase
+          .from('delivery_orders')
+          .select('*')
+          .order('created_at', { ascending: false });
+
+        if (deliveriesData && deliveriesData.length > 0) {
+          if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
+            
+            const newestDelivery = deliveriesData[0]; // Sabse naya order check karne ke liye
+            const isAdmin = currentUser?.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
+            const isMyOrder = newestDelivery?.user_id === currentUser?.id;
+
+            // Admin ko saare orders aur Buyer ko sirf uska apna order dikhega
+            if (isAdmin || isMyOrder) {
               try {
                 playNotificationSound();
               } catch (_) {}
               dispatchAppToast({
-                title: '💰 Naya Withdrawal Request!',
-                message: 'Ek seller ne amount withdrawal ke liye request ki hai.',
+                title: isMyOrder ? '🛍️ Aapka Order Confirm Hua!' : '📦 New Delivery Order Alert',
+                message: isMyOrder ? 'Aapka order successfully place ho gaya hai.' : 'New delivery order received! Driver / Seller check dashboard.',
                 type: 'info',
                 duration: 6000,
               });
             }
-            (window as any).lastPayoutsCount = latestPayoutsData.length;
           }
+          (window as any).lastDeliveriesCount = deliveriesData.length;
+          setDeliveryOrders(deliveriesData);
+        }
       
-      (window as any).lastServicesCount = servicesData.length;
-      setServiceRegistrations(servicesData);
-    }
-
-    // // 7. Delivery Orders (Riders & Store Sellers)
-    const { data: deliveriesData } = await supabase
-      .from('delivery_orders')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (deliveriesData && deliveriesData.length > 0) {
-      if ((window as any).lastDeliveriesCount !== undefined && deliveriesData.length > (window as any).lastDeliveriesCount) {
-        try {
-          playNotificationSound();
-        } catch (_) {}
-        dispatchAppToast({
-          title: '📦 New Delivery Order Alert',
-          message: 'New delivery order received! Driver / Seller check dashboard.',
-          type: 'info',
-          duration: 6000,
-        });
-      }
-      (window as any).lastDeliveriesCount = deliveriesData.length;
-      setDeliveryOrders(deliveriesData);
-    }
       
       
 
