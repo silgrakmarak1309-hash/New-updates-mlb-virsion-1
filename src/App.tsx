@@ -1032,12 +1032,11 @@ export function App() {
         const effectiveFullName = profile?.full_name || authFullName || 'Member';
         const effectiveAvatar = profile?.avatar_url || authAvatar || '';
         const isUserAdmin =
-          authUser.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
+          authUser.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com'
 
-        const effectiveWalletBalance = typeof profile?.wallet_balance === 'number'
-          ? profile.wallet_balance
-          : (wallets.find((w) => w.user_id === authUser.id || w.user_id === ensureUuid(authUser.id))?.balance ?? 0);
-
+        const effectiveWalletBalance = Number(profile?.wallet_balance || 0);
+        
+    
         const updatedProfile: UserProfile = {
           id: authUser.id,
           email: authUser.email || profile?.email || '',
