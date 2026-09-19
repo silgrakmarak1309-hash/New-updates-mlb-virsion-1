@@ -270,76 +270,97 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
                       <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span className="truncate">{item.location_name || 'Meghalaya'}</span>
                     </div>
-          
-                                {/* Marketplace Actions: Conditional filter based on Categories */}
-          {item.category === 'Local Jobs & Services' || 
-          item.category === 'Local Cab & Taxi' || 
-          item.category === 'Travelers & Tour' || 
-          item.category === 'Bike & Auto Rickshaw' ? (
 
-            // 1. In 4 categories ke liye sirf 1 full width WhatsApp Booking Button aayega
+                          const ProductCard = ({
+  item,
+  onAddToCart,
+  dbHandleAddToCart,
+  onBuyNow,
+}) => {
+  const isServiceCategory =
+    item.category === 'Local Jobs & Services' ||
+    item.category === 'Local Cab & Taxi' ||
+    item.category === 'Travelers & Tour' ||
+    item.category === 'Bike & Auto Rickshaw';
+
+  return (
+    <div>
+      {isServiceCategory ? (
+        // 4 service/ride categories ke liye sirf WhatsApp Booking
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation();
+
+            const sellerPhone =
+              item.seller_phone || item.phone;
+
+            if (!sellerPhone) {
+              alert('Seller ka WhatsApp number available nahi hai.');
+              return;
+            }
+
+            const cleanPhone = String(sellerPhone).replace(
+              /[^\d]/g,
+              ''
+            );
+
+            const message = encodeURIComponent(
+              `Hello! Mujhe aapki service/ride book karni hai:\nCategory: ${item.category}\nItem: ${item.title}`
+            );
+
+            window.open(
+              `https://wa.me/${cleanPhone}?text=${message}`,
+              '_blank'
+            );
+          }}
+          className="w-full mt-2 py-2 px-1.5 font-bold rounded-xl bg-green-600 text-white"
+        >
+          Book Ride / Service via WhatsApp
+        </button>
+      ) : (
+        // Normal products ke liye Add to Cart + Buy Now
+        <div className="mt-2 grid grid-cols-2 gap-1 pt-1">
+          {(onAddToCart || dbHandleAddToCart) && (
+            <button
+              type="button"
+              onClick={async (e) => {
+                e.stopPropagation();
+
+                try {
+                  const handleAddToCart =
+                    onAddToCart || dbHandleAddToCart;
+
+                  await handleAddToCart(item);
+                } catch (error) {
+                  console.error(
+                    'Error adding to cart:',
+                    error
+                  );
+                }
+              }}
+              className="w-full bg-blue-600 text-white py-2 px-1.5 font-bold rounded-xl"
+            >
+              Add to Cart
+            </button>
+          )}
+
+          {onBuyNow && (
             <button
               type="button"
               onClick={(e) => {
                 e.stopPropagation();
-                const sellerPhone = item.seller_phone || item.phone || '9876543210';
-                const message = encodeURIComponent(
-                  `Hello! Mujhe aapki service/ride book karni hai:\nCategory: ${item.category}\nItem/Ride: ${item.title}\nPrice: ₹${item.price}`
-                );
-                window.open(`https://wa.me{sellerPhone}?text=${message}`, '_blank');
+                onBuyNow(item);
               }}
-              className="w-full mt-2 grid grid-cols-1 col-span-2 py-2 px-1.5 font-bold rounded-xl text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white text-center cursor-pointer items-center justify-center"
+              className="w-full bg-orange-600 text-white py-2 px-1.5 font-bold rounded-xl"
             >
-              🚖 Book Ride / Service via WhatsApp
+              Buy Now
             </button>
-
-          ) : (
-                  
-
-            // 2. Baki normal products ke liye wahi pehle wale dono standard buttons dikhenge
-            <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1-1">
-              {((onAddToCart || dbHandleAddToCart)) && (
-                <button
-                  type="button"
-                  onClick={async (e) => {
-                    e.stopPropagation();
-                    try {
-                      const handleAddToCart = onAddToCart || dbHandleAddToCart;
-                      await handleAddToCart(item);
-                      setAddedItems((prev) => ({ ...prev, [item.id]: true }));
-                      setTimeout(() => {
-                        setAddedItems((prev) => ({ ...prev, [item.id]: false }));
-                      }, 2000);
-                    } catch (err: any) {
-                      console.error("Button click error:", err);
-                    }
-                  }}
-                  className={`w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-xs transition-all ${
-                    addedItems[item.id]
-                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                      : 'bg-orange-600 hover:bg-orange-700 text-white'
-                  }`}
-                  title="Add item to Cart"
-                >
-                  {addedItems[item.id] ? (
-                    <span className="flex items-center justify-center gap-1">✔ Added</span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-1">🛒 Add to Cart</span>
-                  )}
-                </button>
-              )}
-
-              {/* Buy Now / Order Now Option */}
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (onOrderNow) onOrderNow(item);
-                }}
-                className="w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-xs bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
-              >
-                ⚡ Buy Now
-              </button>
-            </div>
           )}
-                    
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default ProductCard;
