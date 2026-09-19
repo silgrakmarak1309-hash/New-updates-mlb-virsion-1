@@ -1274,34 +1274,36 @@ export function App() {
       }
       
 
-          // // 10. Wallets
-    const { data: walletsData } = await supabase
-      .from('wallets')
-      .select('*');
+              // // 10. Profiles Table se Live Wallet Balance Sync Karein
+          const { data: profilesData } = await supabase
+            .from('profiles')
+            .select('id, wallet_balance');
 
-    if (walletsData && walletsData.length > 0) {
-      setWallets(walletsData);
+          if (profilesData && profilesData.length > 0) {
+            // Sahi user ka profile match karke active user state aur local storage sync karein
+            setCurrentUser((prev) => {
+              if (!prev) return null;
 
-      // Har baar balance update karne ke liye condition hata kar direct fetch mapping lagayi hai
-      setCurrentUser((prev) => {
-        if (!prev) return null;
-        
-        // Sahi wallet record dhoondhein
-        const w = walletsData.find((wal) => wal.user_id === prev.id || wal.id === prev.id);
-        
-        if (w && w.balance !== undefined) {
-          const newBalance = Number(w.balance);
-          
-          // User panel wallet screen sync tabhi hogi jab naya updated data milega
-          const updated = { ...prev, wallet_balance: newBalance };
-          try {
-            localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-          } catch (_) {}
-          return updated;
-        }
-        return prev;
-      });
-    }
+              // Logged-in user ki ID se record match karein
+              const userProfile = profilesData.find((prof) => prof.id === prev.id);
+
+              if (userProfile) {
+                const newBalance = Number(userProfile.wallet_balance || 0);
+
+                // Sirf tabhi update karein jab state ka balance database ke balance se alag ho
+                if (prev.wallet_balance !== newBalance) {
+                  const updated = { ...prev, wallet_balance: newBalance };
+                  try {
+                    localStorage.setItem('mlb_active_user', JSON.stringify(updated));
+                  } catch (e) {
+                    console.error("Localstorage sync error:", e);
+                  }
+                  return updated;
+                }
+              }
+              return prev;
+            });
+          }
       
 
       // 11. Payout Logs
