@@ -270,71 +270,76 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
                       <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
                       <span className="truncate">{item.location_name || 'Meghalaya'}</span>
                     </div>
+          
+                                {/* Marketplace Actions: Conditional filter based on Categories */}
+          {item.category === 'Local Jobs & Services' || 
+          item.category === 'Local Cab & Taxi' || 
+          item.category === 'Travelers & Tour' || 
+          item.category === 'Bike & Auto Rickshaw' ? (
 
-                    {/* Marketplace Actions: Add to Cart & Buy Now */}
-                    <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1">
-                      {(onAddToCart || dbHandleAddToCart) && (
-                        <button
-                          type="button"
-                          onClick={async (e) => {
-                            e.stopPropagation();
-                            try {
-                              const handleAddToCart = onAddToCart || dbHandleAddToCart;
-                              // Pass full item so local cart has instant details
-                              await handleAddToCart(item);
-                              setAddedItems((prev) => ({ ...prev, [item.id]: true }));
-                              setTimeout(() => {
-                                setAddedItems((prev) => ({ ...prev, [item.id]: false }));
-                              }, 2000);
-                            } catch (err: any) {
-                              console.error("Button click error:", err);
-                            }
-                          }}
-                          className={`w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-[11px] transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-xs ${
-                            addedItems[item.id]
-                              ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
-                              : 'bg-orange-600 hover:bg-orange-700 text-white'
-                          }`}
-                          title="Add item to Cart"
-                        >
-                          {addedItems[item.id] ? (
-                            <>
-                              <CheckCircle2 className="w-3 h-3 text-white" />
-                              <span>Added ✓</span>
-                            </>
-                          ) : (
-                            <>
-                              <ShoppingCart className="w-3 h-3 text-white" />
-                              <span>Add to Cart</span>
-                            </>
-                          )}
-                        </button>
-                      )}
+            // 1. In 4 categories ke liye sirf 1 full width WhatsApp Booking Button aayega
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                const sellerPhone = item.seller_phone || item.phone || '9876543210';
+                const message = encodeURIComponent(
+                  `Hello! Mujhe aapki service/ride book karni hai:\nCategory: ${item.category}\nItem/Ride: ${item.title}\nPrice: ₹${item.price}`
+                );
+                window.open(`https://wa.me{sellerPhone}?text=${message}`, '_blank');
+              }}
+              className="w-full mt-2 grid grid-cols-1 col-span-2 py-2 px-1.5 font-bold rounded-xl text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white text-center cursor-pointer items-center justify-center"
+            >
+              🚖 Book Ride / Service via WhatsApp
+            </button>
 
-                      {onOrderNow && (
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            onOrderNow(item);
-                          }}
-                          className={`w-full py-1.5 px-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] sm:text-[11px] font-black transition flex items-center justify-center gap-1 active:scale-95 shadow-xs ${
-                            !onAddToCart ? 'col-span-2' : ''
-                          }`}
-                          title="Instant Buy Now with 100% Prepaid"
-                        >
-                          <Zap className="w-3 h-3 text-amber-300" />
-                          <span>Buy Now</span>
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-};
+          ) : (
+                  
+
+            // 2. Baki normal products ke liye wahi pehle wale dono standard buttons dikhenge
+            <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1-1">
+              {((onAddToCart || dbHandleAddToCart)) && (
+                <button
+                  type="button"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    try {
+                      const handleAddToCart = onAddToCart || dbHandleAddToCart;
+                      await handleAddToCart(item);
+                      setAddedItems((prev) => ({ ...prev, [item.id]: true }));
+                      setTimeout(() => {
+                        setAddedItems((prev) => ({ ...prev, [item.id]: false }));
+                      }, 2000);
+                    } catch (err: any) {
+                      console.error("Button click error:", err);
+                    }
+                  }}
+                  className={`w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-xs transition-all ${
+                    addedItems[item.id]
+                      ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                      : 'bg-orange-600 hover:bg-orange-700 text-white'
+                  }`}
+                  title="Add item to Cart"
+                >
+                  {addedItems[item.id] ? (
+                    <span className="flex items-center justify-center gap-1">✔ Added</span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-1">🛒 Add to Cart</span>
+                  )}
+                </button>
+              )}
+
+              {/* Buy Now / Order Now Option */}
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (onOrderNow) onOrderNow(item);
+                }}
+                className="w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-xs bg-orange-600 hover:bg-orange-700 text-white cursor-pointer"
+              >
+                ⚡ Buy Now
+              </button>
+            </div>
+          )}
+                    
