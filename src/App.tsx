@@ -1231,6 +1231,28 @@ export function App() {
           duration: 6000,
         });
       }
+      
+                // // // 6.7. Realtime Withdrawal / Payout Requests Notification Sync
+          const { data: latestPayoutsData } = await supabase
+            .from('payout_requests')
+            .select('*')
+            .order('created_at', { ascending: false });
+
+          if (latestPayoutsData && latestPayoutsData.length > 0) {
+            if ((window as any).lastPayoutsCount !== undefined && latestPayoutsData.length > (window as any).lastPayoutsCount) {
+              try {
+                playNotificationSound();
+              } catch (_) {}
+              dispatchAppToast({
+                title: '💰 Naya Withdrawal Request!',
+                message: 'Ek seller ne amount withdrawal ke liye request ki hai.',
+                type: 'info',
+                duration: 6000,
+              });
+            }
+            (window as any).lastPayoutsCount = latestPayoutsData.length;
+          }
+      
       (window as any).lastServicesCount = servicesData.length;
       setServiceRegistrations(servicesData);
     }
