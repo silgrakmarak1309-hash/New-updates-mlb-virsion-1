@@ -519,6 +519,20 @@ export async function fetchUserNotifications(userId?: string): Promise<AppNotifi
         dbList = data as AppNotification[];
       }
     } catch (_) {}
+
+    // Also attempt fetching from app_notifications (created by pg_cron jobs)
+    try {
+      const { data: appData, error: appErr } = await supabase
+        .from('app_notifications')
+        .select('*')
+        .or(`user_id.eq.${userId},user_id.is.null`)
+        .order('created_at', { ascending: false })
+        .limit(40);
+
+      if (!appErr && appData && appData.length > 0) {
+        dbList = [...dbList, ...(appData as AppNotification[])];
+      }
+    } catch (_) {}
   }
 
   // Fallback / merge with localStorage
