@@ -1,6 +1,6 @@
 {
   "name": "Meri Local Bazaar",
-  "description": "Buy and sell products, services, vehicles, property, and more in your local bazaar.",
+  "description": "Local community marketplace with categories for products, jobs & services, taxi, tour, and auto rickshaw bookings.",
   "requestFramePermissions": [],
   "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }

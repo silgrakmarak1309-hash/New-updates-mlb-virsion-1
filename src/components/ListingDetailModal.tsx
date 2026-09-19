@@ -348,7 +348,7 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
         <div className="p-3.5 sm:p-4 border-t border-slate-200 bg-slate-50/95 shrink-0 space-y-2.5">
           {/* Main Action Buttons Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {(onAddToCart || dbHandleAddToCart) && (
+            {Boolean(onAddToCart || dbHandleAddToCart) && (
               <button
                 onClick={async () => {
                   try {

@@ -17,6 +17,8 @@ import {
   Wrench,
   Package,
   Store,
+  MessageCircle,
+  Phone,
 } from 'lucide-react';
 import {
   Listing,
@@ -38,6 +40,7 @@ interface UserMarketplaceProps {
   onOpenPro: () => void;
   onOrderNow?: (listing: Listing) => void;
   onAddToCart?: (listingOrId: Listing | string) => Promise<any> | any;
+  onBuyNow?: (listing: Listing) => void;
 }
 
 const CATEGORIES = [
@@ -56,6 +59,38 @@ const CATEGORIES = [
   'Agriculture & Livestock',
 ];
 
+const DIRECT_CONTACT_CATEGORIES = [
+  'Local Jobs & Services',
+  'Local Cab & Taxi',
+  'Travelers & Tour',
+  'Bike & Auto Rickshaw',
+];
+
+/**
+ * Checks if the listing belongs to service / ride booking categories
+ * that require direct WhatsApp & Call actions instead of standard cart checkout.
+ */
+const isDirectContactCategory = (item: Listing): boolean => {
+  const cat = (item.category_name || (item as any).category || '').trim();
+  if (!cat) return false;
+
+  const normalized = cat.toLowerCase();
+  return (
+    cat === 'Local Jobs & Services' ||
+    cat === 'Local Cab & Taxi' ||
+    cat === 'Travelers & Tour' ||
+    cat === 'Bike & Auto Rickshaw' ||
+    normalized === 'local jobs & services' ||
+    normalized === 'local cab & taxi' ||
+    normalized === 'travelers & tour' ||
+    normalized === 'bike & auto rickshaw' ||
+    normalized === 'jobs & services' ||
+    normalized === 'job & service' ||
+    normalized === 'local job & service' ||
+    normalized === 'cab & taxi'
+  );
+};
+
 export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
   listings,
   banners = [],
@@ -64,6 +99,7 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
   onOpenPro,
   onOrderNow,
   onAddToCart,
+  onBuyNow,
 }) => {
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('All');
@@ -80,17 +116,20 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
       item.description?.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.location_name?.toLowerCase().includes(searchQuery.toLowerCase());
 
+    const itemCategory = (item.category_name || (item as any).category || '').toLowerCase();
+    const targetCategory = selectedCategory.toLowerCase();
+
     const matchesCategory =
       selectedCategory === 'All' ||
-      item.category_name?.toLowerCase() === selectedCategory.toLowerCase() ||
+      itemCategory === targetCategory ||
       (selectedCategory === 'Local Jobs & Services' &&
-        (item.category_name?.toLowerCase() === 'jobs & services' ||
-          item.category_name?.toLowerCase() === 'job & service' ||
-          item.category_name?.toLowerCase() === 'local job & service')) ||
+        (itemCategory === 'jobs & services' ||
+          itemCategory === 'job & service' ||
+          itemCategory === 'local job & service')) ||
       (selectedCategory === 'Shops' &&
-        (item.category_name?.toLowerCase() === 'shop' ||
-          item.category_name?.toLowerCase() === 'local shops' ||
-          item.category_name?.toLowerCase() === 'local shop'));
+        (itemCategory === 'shop' ||
+          itemCategory === 'local shops' ||
+          itemCategory === 'local shop'));
 
     return matchesSearch && matchesCategory;
   });
@@ -175,6 +214,8 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
         ) : (
           <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-2.5 sm:gap-4">
             {activeListings.map((item) => {
+              const isDirectContact = isDirectContactCategory(item);
+
               return (
                 <div
                   key={item.id}
@@ -252,115 +293,161 @@ export const UserMarketplace: React.FC<UserMarketplaceProps> = ({
 
                   {/* Typography & Info Container */}
                   <div className="p-2.5 sm:p-3 flex-1 flex flex-col justify-between space-y-1">
-                    {/* Price */}
-                    <div className="text-sm sm:text-base font-black text-emerald-600 truncate leading-tight">
-                      ₹{formatPrice(item.price)}
+                    <div>
+                      {/* Price */}
+                      <div className="text-sm sm:text-base font-black text-emerald-600 truncate leading-tight">
+                        ₹{formatPrice(item.price)}
+                      </div>
+
+                      {/* Single-Line Truncated Title */}
+                      <h4
+                        title={item.title}
+                        className="font-bold text-slate-800 text-xs sm:text-sm truncate group-hover:text-orange-600 transition leading-snug"
+                      >
+                        {item.title}
+                      </h4>
+
+                      {/* Location */}
+                      <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 truncate pt-0.5">
+                        <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span className="truncate">{item.location_name || 'Meghalaya'}</span>
+                      </div>
                     </div>
 
-                    {/* Single-Line Truncated Title */}
-                    <h4
-                      title={item.title}
-                      className="font-bold text-slate-800 text-xs sm:text-sm truncate group-hover:text-orange-600 transition leading-snug"
-                    >
-                      {item.title}
-                    </h4>
+                    {/* Conditional Action Buttons based on category */}
+                    {isDirectContact ? (
+                      /* Requirement 2: For 'Local Jobs & Services', 'Local Cab & Taxi', 'Travelers & Tour', and 'Bike & Auto Rickshaw'
+                         Display two side-by-side buttons: WhatsApp and Direct Call */
+                      <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1">
+                        {/* WhatsApp Action Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rawPhone =
+                              item.seller_phone ||
+                              item.phone ||
+                              item.whatsapp ||
+                              (item as any).contact_number ||
+                              '';
+                            const cleanPhone = String(rawPhone).replace(/[^\d]/g, '');
 
-                    {/* Location */}
-                    <div className="flex items-center gap-1 text-[10px] sm:text-xs text-slate-500 truncate pt-0.5">
-                      <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                      <span className="truncate">{item.location_name || 'Meghalaya'}</span>
-                    </div>
+                            if (!cleanPhone) {
+                              alert('Seller contact number is not available.');
+                              return;
+                            }
 
-                          const ProductCard = ({
-  item,
-  onAddToCart,
-  dbHandleAddToCart,
-  onBuyNow,
-}) => {
-  const isServiceCategory =
-    item.category === 'Local Jobs & Services' ||
-    item.category === 'Local Cab & Taxi' ||
-    item.category === 'Travelers & Tour' ||
-    item.category === 'Bike & Auto Rickshaw';
+                            // If 10-digit Indian phone number without country code, prefix 91 for WhatsApp
+                            const waPhone = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+                            const categoryName = item.category_name || (item as any).category || 'Service';
+                            const encodedMessage = encodeURIComponent(
+                              `Hello! I am inquiring about your ${categoryName}: "${item.title}". Please share more details.`
+                            );
+                            window.open(`https://wa.me/${waPhone}?text=${encodedMessage}`, '_blank');
+                          }}
+                          className="w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-[11px] bg-emerald-600 hover:bg-emerald-700 text-white transition flex items-center justify-center gap-1 active:scale-95 shadow-xs cursor-pointer"
+                          title="Contact on WhatsApp"
+                        >
+                          <MessageCircle className="w-3.5 h-3.5 fill-current shrink-0" />
+                          <span>WhatsApp</span>
+                        </button>
 
-  return (
-    <div>
-      {isServiceCategory ? (
-        // 4 service/ride categories ke liye sirf WhatsApp Booking
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation();
+                        {/* Direct Call Action Button */}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            const rawPhone =
+                              item.seller_phone ||
+                              item.phone ||
+                              item.whatsapp ||
+                              (item as any).contact_number ||
+                              '';
+                            const cleanPhone = String(rawPhone).replace(/[^\d]/g, '');
 
-            const sellerPhone =
-              item.seller_phone || item.phone;
+                            if (!cleanPhone) {
+                              alert('Seller phone number is not available.');
+                              return;
+                            }
 
-            if (!sellerPhone) {
-              alert('Seller ka WhatsApp number available nahi hai.');
-              return;
-            }
+                            window.location.href = `tel:${cleanPhone}`;
+                          }}
+                          className="w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-[11px] bg-slate-900 hover:bg-slate-800 text-white transition flex items-center justify-center gap-1 active:scale-95 shadow-xs cursor-pointer"
+                          title="Direct Call to Seller"
+                        >
+                          <Phone className="w-3.5 h-3.5 shrink-0" />
+                          <span>Direct Call</span>
+                        </button>
+                      </div>
+                    ) : (
+                      /* Requirement 3: For all other categories: Keep original Add to Cart and Buy Now buttons */
+                      <div className="mt-2 grid grid-cols-2 gap-1.5 pt-1">
+                        {Boolean(onAddToCart || dbHandleAddToCart) && (
+                          <button
+                            type="button"
+                            onClick={async (e) => {
+                              e.stopPropagation();
+                              try {
+                                const handleAddToCart = onAddToCart || dbHandleAddToCart;
+                                // Pass full item so local cart has instant details
+                                await handleAddToCart(item);
+                                setAddedItems((prev) => ({ ...prev, [item.id]: true }));
+                                setTimeout(() => {
+                                  setAddedItems((prev) => ({ ...prev, [item.id]: false }));
+                                }, 2000);
+                              } catch (err: any) {
+                                console.error('Button click error:', err);
+                              }
+                            }}
+                            className={`w-full py-1.5 px-1.5 font-bold rounded-xl text-[10px] sm:text-[11px] transition flex items-center justify-center gap-1 active:scale-95 cursor-pointer shadow-xs ${
+                              addedItems[item.id]
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+                                : 'bg-orange-600 hover:bg-orange-700 text-white'
+                            }`}
+                            title="Add item to Cart"
+                          >
+                            {addedItems[item.id] ? (
+                              <>
+                                <CheckCircle2 className="w-3 h-3 text-white" />
+                                <span>Added ✓</span>
+                              </>
+                            ) : (
+                              <>
+                                <ShoppingCart className="w-3 h-3 text-white" />
+                                <span>Add to Cart</span>
+                              </>
+                            )}
+                          </button>
+                        )}
 
-            const cleanPhone = String(sellerPhone).replace(
-              /[^\d]/g,
-              ''
-            );
-
-            const message = encodeURIComponent(
-              `Hello! Mujhe aapki service/ride book karni hai:\nCategory: ${item.category}\nItem: ${item.title}`
-            );
-
-            window.open(
-              `https://wa.me/${cleanPhone}?text=${message}`,
-              '_blank'
-            );
-          }}
-          className="w-full mt-2 py-2 px-1.5 font-bold rounded-xl bg-green-600 text-white"
-        >
-          Book Ride / Service via WhatsApp
-        </button>
-      ) : (
-        // Normal products ke liye Add to Cart + Buy Now
-        <div className="mt-2 grid grid-cols-2 gap-1 pt-1">
-          {(onAddToCart || dbHandleAddToCart) && (
-            <button
-              type="button"
-              onClick={async (e) => {
-                e.stopPropagation();
-
-                try {
-                  const handleAddToCart =
-                    onAddToCart || dbHandleAddToCart;
-
-                  await handleAddToCart(item);
-                } catch (error) {
-                  console.error(
-                    'Error adding to cart:',
-                    error
-                  );
-                }
-              }}
-              className="w-full bg-blue-600 text-white py-2 px-1.5 font-bold rounded-xl"
-            >
-              Add to Cart
-            </button>
-          )}
-
-          {onBuyNow && (
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                onBuyNow(item);
-              }}
-              className="w-full bg-orange-600 text-white py-2 px-1.5 font-bold rounded-xl"
-            >
-              Buy Now
-            </button>
-          )}
-        </div>
-      )}
+                        {(onOrderNow || onBuyNow) && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              const buyHandler = onOrderNow || onBuyNow;
+                              if (buyHandler) buyHandler(item);
+                            }}
+                            className={`w-full py-1.5 px-1.5 bg-orange-600 hover:bg-orange-700 text-white rounded-xl text-[10px] sm:text-[11px] font-black transition flex items-center justify-center gap-1 active:scale-95 shadow-xs cursor-pointer ${
+                              !onAddToCart && !dbHandleAddToCart ? 'col-span-2' : ''
+                            }`}
+                            title="Instant Buy Now with 100% Prepaid"
+                          >
+                            <Zap className="w-3 h-3 text-amber-300" />
+                            <span>Buy Now</span>
+                          </button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
     </div>
   );
 };
 
-export default ProductCard;
+export default UserMarketplace;

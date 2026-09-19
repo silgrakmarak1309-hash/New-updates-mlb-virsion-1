@@ -12,6 +12,7 @@ export interface Listing extends LocalAddressFields {
   title: string;
   category_id?: string;
   category_name?: string;
+  category?: string;
   location_id?: string;
   location_name?: string;
   state_name?: string;
@@ -19,6 +20,7 @@ export interface Listing extends LocalAddressFields {
   condition?: string;
   description?: string;
   phone?: string;
+  seller_phone?: string;
   whatsapp?: string;
   images_json?: string;
   image_urls?: string[];
