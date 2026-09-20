@@ -449,11 +449,28 @@ export function App() {
         const effectiveFullName = profile?.full_name || authFullName || 'Member';
         const effectiveAvatar = profile?.avatar_url || authAvatar || '';
         const isUserAdmin =
-          authUser.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com'
+          authUser.email?.toLowerCase().trim() === 'silgrakmarak1309@gmail.com';
 
         const effectiveWalletBalance = Number(profile?.wallet_balance || 0);
+
+        // Normalize is_pro across boolean, PostgreSQL integer (1), and string ('1', 'true')
+        const rawProfileIsPro: any = (profile as any)?.is_pro;
+        const normalizedIsPro =
+          rawProfileIsPro === true ||
+          rawProfileIsPro === 1 ||
+          rawProfileIsPro === '1' ||
+          String(rawProfileIsPro).toLowerCase().trim() === 'true';
+
+        const rawPlanStatus = String(profile?.plan_status || '').toLowerCase().trim();
+        const rawProStatus = String(profile?.pro_status || '').toLowerCase().trim();
+        const isPlanActive =
+          normalizedIsPro ||
+          rawPlanStatus === 'active' ||
+          rawPlanStatus === 'approved' ||
+          rawProStatus === 'active' ||
+          rawProStatus === 'approved' ||
+          isUserAdmin;
         
-    
         const updatedProfile: UserProfile = {
           id: authUser.id,
           email: authUser.email || profile?.email || '',
@@ -467,11 +484,11 @@ export function App() {
           village: profile?.village || '',
           permanent_address: profile?.permanent_address || '',
           role: (profile?.role || (isUserAdmin ? 'admin' : 'user')) as any,
-          plan_status: profile?.plan_status || (profile?.is_pro ? 'active' : (isUserAdmin ? 'active' : 'inactive')),
-          plan_name: profile?.plan_name || (profile?.is_pro ? 'PRO Monthly Plan' : undefined),
+          plan_status: isPlanActive ? 'active' : (profile?.plan_status || 'inactive'),
+          plan_name: profile?.plan_name || (isPlanActive ? 'PRO Monthly Plan' : undefined),
           plan_expiry_date: profile?.plan_expiry_date || profile?.pro_expiry || null,
-          is_pro: profile?.is_pro ?? isUserAdmin,
-          pro_status: profile?.pro_status || (profile?.plan_status === 'active' ? 'active' : (isUserAdmin ? 'active' : 'inactive')),
+          is_pro: isPlanActive,
+          pro_status: isPlanActive ? 'active' : (profile?.pro_status || 'inactive'),
           pro_expiry: profile?.pro_expiry || (isUserAdmin ? '2030-12-31' : undefined),
           is_delivery_partner: profile?.is_delivery_partner || false,
           partner_status: profile?.partner_status || 'none',
@@ -3577,7 +3594,14 @@ export function App() {
               </button>
 
               <button
-                onClick={() => handleRequireAuth('Submit Listing', () => setUserActiveTab('submit'))}
+                onClick={() => {
+                  const isUserPro =
+                    Number(currentUser?.is_pro) === 1 ||
+                    currentUser?.is_pro === true ||
+                    currentUser?.pro_status === 'active' ||
+                    isUserPlanActive(currentUser);
+                  handleRequireAuth('Submit Listing', () => setUserActiveTab('submit'));
+                }}
                 className={`px-3 py-2 rounded-xl text-xs font-bold transition flex items-center gap-1.5 ${
                   userActiveTab === 'submit'
                     ? 'bg-orange-600 text-white shadow-sm'
@@ -3901,6 +3925,11 @@ export function App() {
 
             <button
               onClick={() => {
+                const isUserPro =
+                  Number(currentUser?.is_pro) === 1 ||
+                  currentUser?.is_pro === true ||
+                  currentUser?.pro_status === 'active' ||
+                  isUserPlanActive(currentUser);
                 handleRequireAuth('Submit Listing', () => setUserActiveTab('submit'));
                 setMobileMenuOpen(false);
               }}
@@ -4037,7 +4066,14 @@ export function App() {
               listings={listings}
               banners={bannerAds}
               onViewListing={(item) => setSelectedListing(item)}
-              onOpenSubmit={() => handleRequireAuth('Submit Listing', () => setUserActiveTab('submit'))}
+              onOpenSubmit={() => {
+                const isUserPro =
+                  Number(currentUser?.is_pro) === 1 ||
+                  currentUser?.is_pro === true ||
+                  currentUser?.pro_status === 'active' ||
+                  isUserPlanActive(currentUser);
+                handleRequireAuth('Submit Listing', () => setUserActiveTab('submit'));
+              }}
               onOpenPro={() => handleRequireAuth('PRO Plans', () => setUserActiveTab('pro_upgrade'))}
               onOrderNow={(item) => setSelectedListingForCheckout(item)}
               onAddToCart={(item) => handleAddToCart(item)}
@@ -4142,7 +4178,12 @@ export function App() {
             userPhone={currentUser.phone}
             userName={currentUser.full_name}
             userId={currentUser.id}
-            isProUser={isUserPlanActive(currentUser)}
+            isProUser={
+              Number(currentUser?.is_pro) === 1 ||
+              currentUser?.is_pro === true ||
+              currentUser?.pro_status === 'active' ||
+              isUserPlanActive(currentUser)
+            }
             currentUser={currentUser}
           />
         )}
@@ -4199,7 +4240,14 @@ export function App() {
             currentUser={currentUser}
             orders={deliveryOrders}
             payoutRequests={payoutRequests}
-            onOpenSubmitModal={() => setUserActiveTab('submit')}
+            onOpenSubmitModal={() => {
+              const isUserPro =
+                Number(currentUser?.is_pro) === 1 ||
+                currentUser?.is_pro === true ||
+                currentUser?.pro_status === 'active' ||
+                isUserPlanActive(currentUser);
+              setUserActiveTab('submit');
+            }}
             onViewListing={(item) => setSelectedListing(item)}
             onDeleteListing={handleDeleteListing}
             onToggleListingStatus={handleToggleListingStatus}

@@ -684,30 +684,32 @@ export function isMasterAdmin(user?: UserProfile | null): boolean {
 /**
  * Checks if a user has an active monthly subscription plan.
  * Master Admin has active privileges by default.
- * Regular users must have plan_status === 'active', pro_status === 'active', or is_pro === true.
+ * Regular users must have is_pro (true, 1, '1', 'true'), pro_status === 'active', or plan_status === 'active'.
  */
 export function isUserPlanActive(user?: UserProfile | null): boolean {
   if (!user) return false;
   if (isMasterAdmin(user)) return true;
 
-  // 1. Direct plan_status check
+  // 1. is_pro check: Handles boolean true, PostgreSQL int4 1, string '1', and string 'true'
+  const rawIsPro: any = (user as any).is_pro;
   if (
-    typeof user.plan_status === 'string' &&
-    (user.plan_status.toLowerCase() === 'active' || user.plan_status.toLowerCase() === 'approved')
+    rawIsPro === true ||
+    rawIsPro === 1 ||
+    rawIsPro === '1' ||
+    String(rawIsPro).toLowerCase().trim() === 'true'
   ) {
     return true;
   }
 
-  // 2. Pro status check
-  if (
-    typeof user.pro_status === 'string' &&
-    (user.pro_status.toLowerCase() === 'active' || user.pro_status.toLowerCase() === 'approved')
-  ) {
+  // 2. Direct plan_status check
+  const rawPlanStatus = String((user as any).plan_status || '').toLowerCase().trim();
+  if (rawPlanStatus === 'active' || rawPlanStatus === 'approved') {
     return true;
   }
 
-  // 3. Boolean is_pro flag
-  if (user.is_pro === true) {
+  // 3. Pro status check
+  const rawProStatus = String((user as any).pro_status || '').toLowerCase().trim();
+  if (rawProStatus === 'active' || rawProStatus === 'approved') {
     return true;
   }
 

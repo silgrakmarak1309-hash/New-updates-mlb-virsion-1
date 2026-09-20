@@ -65,6 +65,42 @@ const CATEGORIES = [
   'Commercial Equipment',
 ];
 
+/**
+ * Accurately parses profile plan subscription status.
+ * Handles:
+ * - is_pro as boolean true
+ * - is_pro as integer 1 (PostgreSQL int4 / smallint)
+ * - is_pro as string '1' or 'true'
+ * - pro_status === 'active' | 'approved'
+ * - plan_status === 'active' | 'approved'
+ * - Master Admin email bypass
+ */
+function parseIsActivePlan(profileRow: any): boolean {
+  if (!profileRow) return false;
+  if (profileRow.email && profileRow.email.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') {
+    return true;
+  }
+
+  // 1. Thoroughly evaluate int4/number type from Supabase:
+  const isUserPro =
+    Number(profileRow?.is_pro) === 1 ||
+    profileRow?.is_pro === true ||
+    profileRow?.pro_status === 'active' ||
+    String(profileRow?.pro_status || '').toLowerCase().trim() === 'approved' ||
+    String(profileRow?.plan_status || '').toLowerCase().trim() === 'active' ||
+    String(profileRow?.plan_status || '').toLowerCase().trim() === 'approved';
+
+  if (isUserPro) return true;
+
+  // String fallback ('1', 'true')
+  const rawIsPro = profileRow.is_pro;
+  if (rawIsPro === '1' || String(rawIsPro).toLowerCase().trim() === 'true') {
+    return true;
+  }
+
+  return false;
+}
+
 export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
   onSuccess,
   onCancel,
@@ -93,7 +129,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
         setIsVerifyingPlan(true);
         let query = supabase
           .from('profiles')
-          .select('id, email, is_pro, pro_status, account_status, is_approved_by_admin');
+          .select('id, email, is_pro, pro_status, plan_status, account_status, is_approved_by_admin');
 
         if (effectiveUid) {
           query = query.eq('id', effectiveUid);
@@ -104,14 +140,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
         const { data, error } = await query.maybeSingle();
 
         if (isMounted && data) {
-          const isActive = Boolean(
-            (data.email && data.email.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') ||
-            (typeof (data as any).plan_status === 'string' &&
-              ((data as any).plan_status.toLowerCase() === 'active' || (data as any).plan_status.toLowerCase() === 'approved')) ||
-            (typeof data.pro_status === 'string' &&
-              (data.pro_status.toLowerCase() === 'active' || data.pro_status.toLowerCase() === 'approved')) ||
-            data.is_pro === true
-          );
+          const isActive = parseIsActivePlan(data);
           setDbPlanVerified(isActive);
         }
       } catch (err) {
@@ -134,14 +163,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
           (payload: any) => {
             const updated = payload.new;
             if (updated && isMounted) {
-              const isActive = Boolean(
-                (updated.email && updated.email.toLowerCase().trim() === 'silgrakmarak1309@gmail.com') ||
-                (typeof updated.plan_status === 'string' &&
-                  (updated.plan_status.toLowerCase() === 'active' || updated.plan_status.toLowerCase() === 'approved')) ||
-                (typeof updated.pro_status === 'string' &&
-                  (updated.pro_status.toLowerCase() === 'active' || updated.pro_status.toLowerCase() === 'approved')) ||
-                updated.is_pro === true
-              );
+              const isActive = parseIsActivePlan(updated);
               setDbPlanVerified(isActive);
             }
           }
@@ -162,10 +184,22 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
   // Unified active plan status for all listing categories:
   // (Seller, Cab & Taxi, Travelers & Tour, Local Service provider, Shop owner, etc.)
   const hasActiveMonthlyPlan = useMemo(() => {
-    if (isMasterAdmin(currentUser)) return true;
+    // 1. Thoroughly evaluate int4/number type, boolean, and pro_status from Supabase:
+    const isUserPro =
+      Number(currentUser?.is_pro) === 1 ||
+      currentUser?.is_pro === true ||
+      currentUser?.pro_status === 'active' ||
+      currentUser?.plan_status === 'active' ||
+      Number(isProUser) === 1 ||
+      isProUser === true ||
+      isMasterAdmin(currentUser) ||
+      isUserPlanActive(currentUser);
+
+    // If active seller, restriction modal layout remains strictly false
+    if (isUserPro) return true;
+    if (dbPlanVerified === true) return true;
     if (dbPlanVerified !== null) return dbPlanVerified;
-    if (currentUser) return isUserPlanActive(currentUser);
-    return Boolean(isProUser);
+    return false;
   }, [currentUser, dbPlanVerified, isProUser]);
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState('Mobiles & Gadgets');
@@ -438,7 +472,18 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
   return (
     <div className="max-w-2xl mx-auto bg-white rounded-3xl shadow-sm border border-slate-200 overflow-hidden relative">
       {/* UNIFIED MONTHLY PLAN RESTRICTION OVERLAY FOR ALL CATEGORIES */}
-      {!hasActiveMonthlyPlan && (
+      {/* INITIAL PLAN VERIFICATION SPINNER */}
+      {isVerifyingPlan && dbPlanVerified === null && !hasActiveMonthlyPlan ? (
+        <div className="absolute inset-0 z-30 bg-slate-950/90 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-150">
+          <div className="max-w-sm w-full bg-slate-900 border border-slate-800 rounded-3xl p-8 shadow-2xl text-white space-y-4 flex flex-col items-center">
+            <Loader2 className="w-10 h-10 text-orange-500 animate-spin" />
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white">Verifying Seller Status</h3>
+              <p className="text-xs text-slate-400">Syncing active plan status with Supabase...</p>
+            </div>
+          </div>
+        </div>
+      ) : !hasActiveMonthlyPlan ? (
         <div className="absolute inset-0 z-30 bg-slate-950/85 backdrop-blur-md rounded-3xl flex flex-col items-center justify-center p-6 text-center animate-in fade-in duration-200">
           <div className="max-w-md w-full bg-slate-900 border-2 border-amber-500/60 rounded-3xl p-6 sm:p-8 shadow-2xl text-white relative overflow-hidden space-y-5">
             <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-amber-500 to-orange-600 text-slate-950 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/30">
@@ -489,14 +534,21 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
             </div>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="bg-slate-900 text-white p-6 sm:p-8">
         <div className="flex items-center justify-between">
           <div>
-            <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider">
-              Moderated Submission
-            </span>
+            <div className="flex items-center gap-2">
+              <span className="bg-amber-500/20 text-amber-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider">
+                Moderated Submission
+              </span>
+              {hasActiveMonthlyPlan && (
+                <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-bold px-2.5 py-0.5 rounded uppercase tracking-wider flex items-center gap-1">
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" /> Active Seller Verified
+                </span>
+              )}
+            </div>
             <h2 className="text-2xl font-black text-white mt-1">Submit Listing Request</h2>
             <p className="text-xs text-slate-400 mt-0.5">
               Upload up to 6 clear photos. All submissions are verified by Admin Control Room before going live.
