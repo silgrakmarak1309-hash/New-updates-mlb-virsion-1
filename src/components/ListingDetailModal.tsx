@@ -212,6 +212,14 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
                 <Tag className="w-3.5 h-3.5 text-slate-400" />
                 {listing.category_name || 'General'}
               </span>
+              {typeof listing.weight === 'number' && listing.weight > 0 && (
+                <span className="flex items-center gap-1 bg-orange-50 border border-orange-200/60 px-2.5 py-1 rounded-lg font-bold text-orange-700">
+                  <Package className="w-3.5 h-3.5 text-orange-500" />
+                  {listing.weight >= 1000
+                    ? `${(listing.weight / 1000).toFixed(listing.weight % 1000 === 0 ? 0 : 2)} kg (${listing.weight} g)`
+                    : `${listing.weight} g`}
+                </span>
+              )}
             </div>
           </div>
 

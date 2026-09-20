@@ -83,6 +83,11 @@ export default function GlobalNotificationManager({
       normalizedRole === 'delivery_boy' ||
       normalizedRole === 'driver' ||
       Boolean(currentUser?.is_delivery_partner);
+    const isSeller =
+      normalizedRole === 'seller' ||
+      normalizedRole === 'vendor' ||
+      normalizedRole === 'merchant' ||
+      Boolean(currentUser?.is_seller);
 
     const sendPushAlert = (title: string, message: string, type: 'order' | 'payout' | 'general' = 'general') => {
       // 1. Play sound
@@ -111,22 +116,62 @@ export default function GlobalNotificationManager({
     if (!supabase) return;
     const client = supabase;
 
+    // Helper to test if order row belongs to current user as seller
+    const checkIsMySellerOrder = (row: any) => {
+      if (!currentUser || !row) return false;
+      const curId = currentUser.id;
+      const curPhone = currentUser.phone?.trim();
+      const curName = currentUser.full_name?.trim().toLowerCase();
+      return Boolean(
+        (curId && row.seller_id === curId) ||
+        (curPhone && row.seller_phone && row.seller_phone.includes(curPhone)) ||
+        (curName && row.seller_name && row.seller_name.trim().toLowerCase() === curName)
+      );
+    };
+
+    // Helper to test if order row belongs to current user as buyer
+    const checkIsMyBuyerOrder = (row: any) => {
+      if (!currentUser || !row) return false;
+      const curId = currentUser.id;
+      const curPhone = currentUser.phone?.trim();
+      return Boolean(
+        (curId && (row.buyer_id === curId || row.user_id === curId)) ||
+        (curPhone && row.customer_phone && row.customer_phone.includes(curPhone))
+      );
+    };
+
+    // Helper to test if order row belongs to current user as delivery driver
+    const checkIsMyDriverOrder = (row: any) => {
+      if (!currentUser || !row) return false;
+      const curId = currentUser.id;
+      return Boolean(curId && row.delivery_partner_id === curId);
+    };
+
     // ==========================================
-    // 📦 1. NEW ORDER LISTENER ('orders' & 'delivery_orders')
+    // 📦 1. NEW & UPDATED ORDER REAL-TIME LISTENER
     // ==========================================
     const orderChannel = client
-      .channel('live-orders-alert')
+      .channel('live-orders-and-deliveries-alert')
       .on(
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'orders' },
         (payload: any) => {
-          if (isAdmin || isDeliveryPartner) {
-            const orderId = payload?.new?.id || payload?.new?.order_id || 'ORD-New';
-            const price = payload?.new?.total_price || payload?.new?.amount || payload?.new?.total_amount || '';
-            const priceText = price ? `\nTotal Amount: ₹${price}` : '';
+          const newRow = payload?.new;
+          if (!newRow) return;
+          const orderId = newRow.id || newRow.order_id || 'ORD-New';
+          const price = newRow.total_price || newRow.amount || newRow.total_amount || '';
+          const isSellerTarget = checkIsMySellerOrder(newRow) || (isSeller && !newRow.seller_id);
+
+          if (isSellerTarget) {
+            sendPushAlert(
+              '🛒 Naya Store Order Aaya Hai!',
+              `Order #${orderId} • ₹${price}\nCustomer: ${newRow.customer_name || 'Buyer'}\nKripya order pack karein.`,
+              'order'
+            );
+          } else if (isAdmin || isDeliveryPartner) {
             sendPushAlert(
               '📦 Naya Order Aaya Hai!',
-              `Order ID: #${orderId}${priceText}\nKripya dashboard check karein.`,
+              `Order ID: #${orderId}${price ? `\nTotal Amount: ₹${price}` : ''}\nKripya dashboard check karein.`,
               'order'
             );
           }
@@ -136,15 +181,97 @@ export default function GlobalNotificationManager({
         'postgres_changes',
         { event: 'INSERT', schema: 'public', table: 'delivery_orders' },
         (payload: any) => {
-          if (isAdmin || isDeliveryPartner) {
-            const orderId = payload?.new?.id || payload?.new?.order_number || 'New';
-            const fare = payload?.new?.delivery_fare || payload?.new?.total_fare || payload?.new?.total_paid || '';
-            const fareText = fare ? `\nFare: ₹${fare}` : '';
+          const newRow = payload?.new;
+          if (!newRow) return;
+          const orderId = newRow.order_number || newRow.id || 'New';
+          const fare = newRow.total_paid || newRow.total_fare || newRow.delivery_fare || '';
+          const isSellerTarget = checkIsMySellerOrder(newRow);
+
+          // 1. Seller Notification
+          if (isSellerTarget) {
             sendPushAlert(
-              '📦 Nayi Delivery Order Booking!',
-              `Delivery ID: #${orderId}${fareText}\nCheck Delivery Dashboard.`,
+              '🛒 Naya Order Aaya Hai Aapki Shop Par!',
+              `Order #${orderId} • ₹${fare}\nProduct: ${newRow.item_description || 'Store item'}\nCustomer: ${newRow.customer_name || 'Buyer'}`,
               'order'
             );
+            return;
+          }
+
+          // 2. Delivery Partner / Admin Notification
+          if (isAdmin || isDeliveryPartner) {
+            const isSelfPickup = newRow.fulfillment_type === 'self_pickup';
+            if (!isSelfPickup) {
+              const driverEarning = newRow.partner_earning ? ` (Driver Payout: ₹${newRow.partner_earning})` : '';
+              sendPushAlert(
+                '🚨 Nayi Delivery Request Aayi Hai!',
+                `Order #${orderId}${driverEarning}\nDrop: ${newRow.delivery_address || 'Tura, Meghalaya'}\nAvailable in Delivery Dashboard.`,
+                'order'
+              );
+            }
+          }
+        }
+      )
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'delivery_orders' },
+        (payload: any) => {
+          const newRow = payload?.new;
+          const oldRow = payload?.old;
+          if (!newRow) return;
+
+          const orderId = newRow.order_number || newRow.id || 'Order';
+          const newStatus = newRow.status;
+          const oldStatus = oldRow?.status;
+
+          // Only alert if status actually changed
+          if (oldStatus && oldStatus === newStatus) return;
+
+          const isSellerTarget = checkIsMySellerOrder(newRow);
+          const isBuyerTarget = checkIsMyBuyerOrder(newRow);
+          const isDriverTarget = checkIsMyDriverOrder(newRow);
+
+          if (newStatus === 'out_for_delivery') {
+            if (isBuyerTarget) {
+              sendPushAlert(
+                '🚚 Order Out For Delivery!',
+                `Order #${orderId} lekar driver nikal chuka hai. Rider: ${newRow.delivery_partner_name || 'Driver'}`,
+                'order'
+              );
+            } else if (isSellerTarget) {
+              sendPushAlert(
+                '🚚 Delivery Partner ne Pick Kiya!',
+                `Order #${orderId} delivery partner ne pick kar liya hai aur transit mein hai.`,
+                'order'
+              );
+            }
+          } else if (newStatus === 'delivered_by_boy') {
+            if (isBuyerTarget) {
+              sendPushAlert(
+                '📍 Delivery Partner Reached Drop Location!',
+                `Driver ne order #${orderId} deliver mark kiya hai. Kripya My Orders mein Confirm karein.`,
+                'order'
+              );
+            } else if (isSellerTarget) {
+              sendPushAlert(
+                '📦 Order Delivered to Customer Location!',
+                `Order #${orderId} customer ko handover kar diya gaya hai.`,
+                'order'
+              );
+            }
+          } else if (newStatus === 'delivered' || newStatus === 'success') {
+            if (isSellerTarget) {
+              sendPushAlert(
+                '💰 Order Completed & Funds Settled!',
+                `Order #${orderId} confirm ho gaya hai! Earnings wallet mein transfer kar di gayi hain.`,
+                'order'
+              );
+            } else if (isDriverTarget) {
+              sendPushAlert(
+                '🎉 Delivery Confirmed by Customer!',
+                `Order #${orderId} successfully completed! ₹${newRow.partner_earning || 0} payout wallet balance mein add ho gaya.`,
+                'order'
+              );
+            }
           }
         }
       )

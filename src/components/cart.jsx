@@ -15,6 +15,12 @@ import {
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { PolicyModal } from './PolicyModal';
+import {
+  calculateHaversineDistanceKm,
+  calculateDynamicDeliveryFee,
+  getListingVendorCoordinates,
+  getUserBuyerCoordinates,
+} from '../lib/deliveryCalculation';
 
 /**
  * Complete Cart Page Component (cart.jsx)
@@ -183,7 +189,29 @@ export default function CartPage({
     return acc + price * qty;
   }, 0);
 
-  const deliveryCharges = cartItems.length > 0 ? 40 : 0;
+  // Dynamic Distance Vector Calculation via Haversine geometric algorithm
+  // Enforcing an absolute boundary floor value of 0.5 km
+  const primaryListing = cartItems[0]?.listing;
+  const vendorCoords = getListingVendorCoordinates(primaryListing);
+  const buyerCoords = getUserBuyerCoordinates(currentUser);
+
+  const buyerLat = currentUser?.buyer_latitude ?? buyerCoords.latitude;
+  const buyerLon = currentUser?.buyer_longitude ?? buyerCoords.longitude;
+  const sellerLat = primaryListing?.seller_latitude ?? vendorCoords.latitude;
+  const sellerLon = primaryListing?.seller_longitude ?? vendorCoords.longitude;
+
+  const distanceKm =
+    cartItems.length > 0
+      ? calculateHaversineDistanceKm(buyerLat, buyerLon, sellerLat, sellerLon)
+      : 0;
+
+  // Delivery Charges Mathematical Calculation:
+  // - Base Flat Driver Service Fee: ₹20
+  // - Fuel Operational Matrix Factor: ((Distance / 35 km/l Mileage) * ₹140 Petrol Rate per Litre)
+  // - Product Payload Weight Multiplier: (0.1 Kg mass payload * ₹5 per Kg baseline rate)
+  // - Apply final Math.round() parsing function block wrapper onto the summation
+  const dynamicDeliveryCalc = calculateDynamicDeliveryFee(distanceKm, 0.1);
+  const deliveryCharges = cartItems.length > 0 ? dynamicDeliveryCalc.totalDeliveryFee : 0;
   const grandTotal = subtotal + deliveryCharges;
 
   const openPolicy = (type) => {
@@ -373,12 +401,39 @@ export default function CartPage({
                 <span>Product Subtotal</span>
                 <span className="font-bold text-slate-900">₹{subtotal.toLocaleString('en-IN')}</span>
               </div>
-              <div className="flex justify-between text-slate-600">
-                <span className="flex items-center gap-1">
-                  <Truck className="w-3.5 h-3.5 text-slate-400" /> Delivery Charge
-                </span>
-                <span className="font-bold text-slate-900">₹{deliveryCharges.toLocaleString('en-IN')}</span>
+              <div className="flex justify-between text-slate-600 items-center">
+                <div className="flex flex-col">
+                  <span className="flex items-center gap-1.5 text-slate-800 font-bold">
+                    <Truck className="w-3.5 h-3.5 text-orange-500" /> Dynamic Delivery Charge
+                  </span>
+                  <span className="text-[10px] text-slate-400 font-medium pl-5">
+                    Haversine Vector: {distanceKm.toFixed(1)} km (Floor: 0.5 km)
+                  </span>
+                </div>
+                <span className="font-bold text-slate-900 text-sm">₹{deliveryCharges.toLocaleString('en-IN')}</span>
               </div>
+
+              {/* Dynamic Delivery Breakdown Matrix */}
+              {cartItems.length > 0 && (
+                <div className="bg-slate-50 border border-slate-200/80 rounded-xl p-2.5 text-[10px] text-slate-600 space-y-1">
+                  <div className="flex justify-between">
+                    <span>Base Flat Driver Fee:</span>
+                    <span className="font-semibold text-slate-800">₹{dynamicDeliveryCalc.baseFlatDriverFee}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Fuel Matrix (({distanceKm.toFixed(1)} km / 35) × ₹140):</span>
+                    <span className="font-semibold text-slate-800">₹{dynamicDeliveryCalc.fuelOperationalFactor.toFixed(1)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Payload Multiplier (0.1 kg × ₹5):</span>
+                    <span className="font-semibold text-slate-800">₹{dynamicDeliveryCalc.productPayloadMultiplier.toFixed(1)}</span>
+                  </div>
+                  <div className="border-t border-slate-200 pt-1 flex justify-between font-bold text-slate-900">
+                    <span>Total Delivery Fee (Math.round):</span>
+                    <span className="text-orange-600">₹{deliveryCharges}</span>
+                  </div>
+                </div>
+              )}
               <div className="border-t border-slate-100 pt-3 flex justify-between items-center text-sm font-black text-slate-900">
                 <span>Grand Total</span>
                 <span className="text-lg font-black text-emerald-600">

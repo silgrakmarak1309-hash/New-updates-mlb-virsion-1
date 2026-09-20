@@ -16,6 +16,8 @@ import {
   Sparkles,
   FileText,
   ExternalLink,
+  MapPin,
+  Navigation,
 } from 'lucide-react';
 import {
   Listing,
@@ -29,6 +31,14 @@ import {
   getListingPrimaryImage,
 } from '../types';
 import { uploadListingImageToStorage } from '../lib/storage';
+import { supabase } from '../lib/supabase';
+import {
+  geocodeAddress,
+  calculateHaversineDistanceKm,
+  calculateDynamicDeliveryFee,
+  getListingVendorCoordinates,
+  getUserBuyerCoordinates,
+} from '../lib/deliveryCalculation';
 import { UpiIntentButtons } from './UpiIntentButtons';
 import { PolicyModal } from './PolicyModal';
 import { LocalAddressSelector, LocalAddressState } from './LocalAddressSelector';
@@ -86,9 +96,141 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const [selectedPolicyType, setSelectedPolicyType] = useState<PolicyType>('terms_conditions');
 
   // Delivery estimation for home delivery
-  const [weightKg, setWeightKg] = useState<number>(3);
+  const [weightKg, setWeightKg] = useState<number>(() => {
+    if (typeof listing.weight === 'number' && listing.weight > 0) {
+      return Number((listing.weight / 1000).toFixed(2));
+    }
+    return 3;
+  });
   const [distanceKm, setDistanceKm] = useState<number>(5);
   const [terrain, setTerrain] = useState<'Plain' | 'Hill (5km/L)'>('Hill (5km/L)');
+
+  // Geocoded Coordinates & Permanent Address Saving State
+  const [buyerLatitude, setBuyerLatitude] = useState<number | undefined>(currentUser?.buyer_latitude);
+  const [buyerLongitude, setBuyerLongitude] = useState<number | undefined>(currentUser?.buyer_longitude);
+  const [isSavingAddress, setIsSavingAddress] = useState(false);
+  const [addressSavedSuccess, setAddressSavedSuccess] = useState(false);
+  const [geocodingNotice, setGeocodingNotice] = useState<string | null>(null);
+
+  // Vendor coordinates from listing
+  const vendorCoords = getListingVendorCoordinates(listing);
+
+  // Initialize and synchronise coordinates on mount or when address/listing changes
+  useEffect(() => {
+    if (currentUser?.buyer_latitude && currentUser?.buyer_longitude) {
+      setBuyerLatitude(currentUser.buyer_latitude);
+      setBuyerLongitude(currentUser.buyer_longitude);
+      const calculatedDist = calculateHaversineDistanceKm(
+        currentUser.buyer_latitude,
+        currentUser.buyer_longitude,
+        vendorCoords.latitude,
+        vendorCoords.longitude
+      );
+      setDistanceKm(calculatedDist);
+    } else if (deliveryAddress) {
+      geocodeAddress(deliveryAddress, {
+        district: locationState.district,
+        block: locationState.block,
+        state: locationState.state,
+      }).then((coords) => {
+        setBuyerLatitude(coords.latitude);
+        setBuyerLongitude(coords.longitude);
+        const calculatedDist = calculateHaversineDistanceKm(
+          coords.latitude,
+          coords.longitude,
+          vendorCoords.latitude,
+          vendorCoords.longitude
+        );
+        setDistanceKm(calculatedDist);
+      });
+    }
+  }, [currentUser?.id, listing.id]);
+
+  // Permanent delivery address submission handler with geocoding and Supabase profile mutation
+  const handleSavePermanentAddress = async (explicitAddress?: string) => {
+    const addrToSave = (explicitAddress !== undefined ? explicitAddress : deliveryAddress).trim();
+    if (!addrToSave) {
+      setErrorMsg('Please enter a delivery address first.');
+      return null;
+    }
+    if (!currentUser?.id) {
+      setErrorMsg('Please sign in to update your permanent delivery address.');
+      return null;
+    }
+
+    setIsSavingAddress(true);
+    setGeocodingNotice('Geocoding address coordinates...');
+    try {
+      // 1. Trigger geocoding operation to parse address into numerical buyer_latitude & buyer_longitude
+      const parsedCoords = await geocodeAddress(addrToSave, {
+        district: locationState.district,
+        block: locationState.block,
+        state: locationState.state,
+      });
+
+      setBuyerLatitude(parsedCoords.latitude);
+      setBuyerLongitude(parsedCoords.longitude);
+
+      // Recompute dynamic distance with 0.5 km boundary floor
+      const newDistance = calculateHaversineDistanceKm(
+        parsedCoords.latitude,
+        parsedCoords.longitude,
+        vendorCoords.latitude,
+        vendorCoords.longitude
+      );
+      setDistanceKm(newDistance);
+
+      // 2. Execute Supabase mutation query to update the corresponding active profile entry in the database
+      if (supabase && currentUser.id !== 'guest_user') {
+        const { error: supError } = await supabase
+          .from('profiles')
+          .update({
+            permanent_address: addrToSave,
+            buyer_latitude: parsedCoords.latitude,
+            buyer_longitude: parsedCoords.longitude,
+            state: locationState.state,
+            district: locationState.district,
+            block: locationState.block,
+            village: locationState.village,
+          })
+          .eq('id', currentUser.id);
+
+        if (supError) {
+          console.warn('[CheckoutModal] Supabase permanent address update warning:', supError);
+        }
+      }
+
+      // 3. Update in-memory user and localStorage cache
+      currentUser.permanent_address = addrToSave;
+      currentUser.buyer_latitude = parsedCoords.latitude;
+      currentUser.buyer_longitude = parsedCoords.longitude;
+      currentUser.state = locationState.state;
+      currentUser.district = locationState.district;
+      currentUser.block = locationState.block;
+      currentUser.village = locationState.village;
+
+      try {
+        localStorage.setItem('mlb_active_user', JSON.stringify(currentUser));
+      } catch (_) {}
+
+      setAddressSavedSuccess(true);
+      setGeocodingNotice(
+        `Geocoded: Lat ${parsedCoords.latitude.toFixed(4)}, Lon ${parsedCoords.longitude.toFixed(4)}`
+      );
+      setTimeout(() => {
+        setAddressSavedSuccess(false);
+        setGeocodingNotice(null);
+      }, 4000);
+
+      return parsedCoords;
+    } catch (err: any) {
+      console.error('[CheckoutModal] Failed to geocode and save address:', err);
+      setGeocodingNotice('Geocoding fallback applied');
+      return null;
+    } finally {
+      setIsSavingAddress(false);
+    }
+  };
 
   // Advance Payment Verification Inputs
   const [utrNumber, setUtrNumber] = useState('');
@@ -105,14 +247,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
   }, [isHeavy]);
 
-  // Pricing calculations
+  // Pricing calculations: Dynamic Delivery Calculation
+  // - Base Flat Driver Service Fee: ₹20
+  // - Fuel Operational Matrix Factor: ((Distance / 35 km/l Mileage) * ₹140 Petrol Rate per Litre)
+  // - Product Payload Weight Multiplier: (0.1 Kg mass payload * ₹5 per Kg baseline rate)
+  // - Apply final Math.round() parsing function block wrapper onto the summation
+  const dynamicDeliveryCalc = calculateDynamicDeliveryFee(distanceKm, 0.1);
   const productPrice = Number(listing.price) || 0;
-  const deliveryCalc =
+  const deliveryFee =
     fulfillmentType === 'home_delivery' && !isHeavy
-      ? calculateDeliveryFare(weightKg, distanceKm, terrain)
-      : { totalFare: 0, appCommission: 0, partnerEarning: 0 };
+      ? dynamicDeliveryCalc.totalDeliveryFee
+      : 0;
 
-  const deliveryFee = deliveryCalc.totalFare;
   const totalAmountToPay = productPrice + deliveryFee;
 
   // Dynamic QR code for the exact amount
@@ -213,6 +359,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
     try {
       setIsSubmitting(true);
+
+      // Ensure address is geocoded and active profile entry is updated in Supabase
+      if (fulfillmentType === 'home_delivery' && deliveryAddress.trim()) {
+        await handleSavePermanentAddress(deliveryAddress.trim());
+      }
+
       const generatedOrderNo = `MLB-${Math.floor(100000 + Math.random() * 900000)}`;
 
       const formattedDeliveryAddr =
@@ -246,14 +398,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         weight_kg: weightKg,
         distance_km: distanceKm,
         terrain_type: terrain,
-        app_commission: deliveryCalc.appCommission,
-        partner_earning: deliveryCalc.partnerEarning,
+        app_commission: Math.round(deliveryFee * 0.2),
+        partner_earning: Math.round(deliveryFee * 0.8),
         payment_method: 'online_upi',
         payment_status: 'pending_verification',
         transaction_id: utrNumber.trim(),
         payment_screenshot_url: screenshotUrl || undefined,
         is_heavy_item: isHeavy,
         fulfillment_type: fulfillmentType,
+        buyer_latitude: buyerLatitude,
+        buyer_longitude: buyerLongitude,
+        seller_latitude: vendorCoords.latitude,
+        seller_longitude: vendorCoords.longitude,
         seller_name: listing.seller_name || 'Verified Vendor',
         seller_phone: listing.phone || listing.whatsapp || '9876543210',
         status: 'pending',
@@ -576,48 +732,80 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       onChange={(e) => setDeliveryAddress(e.target.value)}
                       className="w-full px-3.5 py-2.5 bg-white border border-slate-300 rounded-xl text-xs sm:text-sm font-bold text-slate-900 placeholder:text-slate-400 placeholder:font-normal focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20"
                     />
+
+                    {/* Geocoding and Permanent Address Save Action */}
+                    <div className="flex flex-wrap items-center justify-between gap-2 mt-2">
+                      <button
+                        type="button"
+                        onClick={() => handleSavePermanentAddress()}
+                        disabled={isSavingAddress || !deliveryAddress.trim()}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-orange-50 hover:bg-orange-100 text-orange-700 border border-orange-200 transition disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                        title="Save address and geocode coordinates to your permanent profile in Supabase"
+                      >
+                        {isSavingAddress ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-orange-600 border-t-transparent rounded-full animate-spin" />
+                            <span>Geocoding & Saving...</span>
+                          </>
+                        ) : addressSavedSuccess ? (
+                          <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-700">Permanent Address Saved!</span>
+                          </>
+                        ) : (
+                          <>
+                            <MapPin className="w-3.5 h-3.5 text-orange-600" />
+                            <span>Save as Permanent Address</span>
+                          </>
+                        )}
+                      </button>
+
+                      {geocodingNotice && (
+                        <span className="text-[10px] font-medium text-slate-600 bg-slate-100 px-2 py-0.5 rounded-md border border-slate-200">
+                          {geocodingNotice}
+                        </span>
+                      )}
+                    </div>
+
+                    {(buyerLatitude || buyerLongitude) && (
+                      <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-mono">
+                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                        <span>
+                          Buyer Geocode: Lat {Number(buyerLatitude).toFixed(4)}, Lon{' '}
+                          {Number(buyerLongitude).toFixed(4)}
+                        </span>
+                      </div>
+                    )}
                   </div>
 
-                  {/* Delivery calculation parameters */}
-                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 grid grid-cols-3 gap-2 text-xs">
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                        Est. Weight (kg)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="30"
-                        value={weightKg}
-                        onChange={(e) => setWeightKg(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900"
-                      />
+                  {/* Dynamic Distance Vector & Fare Matrix Breakdown */}
+                  <div className="bg-slate-50 border border-slate-200 rounded-2xl p-3.5 space-y-2 text-xs">
+                    <div className="flex items-center justify-between">
+                      <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                        <Navigation className="w-3.5 h-3.5 text-orange-500" /> Dynamic Haversine Vector
+                      </span>
+                      <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
+                        {distanceKm.toFixed(1)} km (Floor: 0.5 km)
+                      </span>
                     </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                        Est. Distance (km)
-                      </label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="100"
-                        value={distanceKm}
-                        onChange={(e) => setDistanceKm(Number(e.target.value))}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-[10px] font-bold text-slate-500 mb-1">
-                        Road Terrain
-                      </label>
-                      <select
-                        value={terrain}
-                        onChange={(e) => setTerrain(e.target.value as any)}
-                        className="w-full px-2.5 py-1.5 bg-white border border-slate-300 rounded-lg text-xs font-bold text-slate-900"
-                      >
-                        <option value="Hill (5km/L)">Hill (Hilly)</option>
-                        <option value="Plain">Plain Road</option>
-                      </select>
+
+                    <div className="text-[10px] space-y-1 text-slate-500 pt-1 border-t border-slate-200">
+                      <div className="flex justify-between">
+                        <span>Base Flat Driver Service Fee:</span>
+                        <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.baseFlatDriverFee}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Fuel Factor (({distanceKm.toFixed(1)} km / 35 km/l) × ₹140):</span>
+                        <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.fuelOperationalFactor.toFixed(1)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Payload Multiplier (0.1 kg × ₹5/kg):</span>
+                        <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.productPayloadMultiplier.toFixed(1)}</span>
+                      </div>
+                      <div className="border-t border-slate-200 pt-1 flex justify-between font-bold text-slate-800">
+                        <span>Delivery Charge (Math.round):</span>
+                        <span className="text-orange-600 text-xs">₹{dynamicDeliveryCalc.totalDeliveryFee}</span>
+                      </div>
                     </div>
                   </div>
                 </div>

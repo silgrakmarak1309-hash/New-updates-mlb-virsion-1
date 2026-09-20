@@ -177,6 +177,8 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
     village: '',
   });
   const [price, setPrice] = useState('');
+  const [weightValue, setWeightValue] = useState('');
+  const [weightUnit, setWeightUnit] = useState<'g' | 'kg'>('g');
   const [condition, setCondition] = useState('Used - Like New');
   const [description, setDescription] = useState('');
   const [phone, setPhone] = useState(userPhone);
@@ -375,6 +377,18 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
     const finalListingId = generateUuid();
     const finalSellerId = ensureUuid(userId);
 
+    // 2. Extract numeric weight value and selected unit identifier
+    // 3. Normalization rule: If unit is "kg", multiply input value by 1000 to convert into grams
+    let consolidatedWeightInGrams: number | undefined = undefined;
+    const parsedWeight = parseFloat(weightValue);
+    if (!isNaN(parsedWeight) && parsedWeight > 0) {
+      if (weightUnit === 'kg') {
+        consolidatedWeightInGrams = Math.round(parsedWeight * 1000);
+      } else {
+        consolidatedWeightInGrams = Math.round(parsedWeight);
+      }
+    }
+
     const listingPayload: Listing = {
       id: finalListingId,
       title: title.trim(),
@@ -385,6 +399,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
       block: locationState.block,
       village: locationState.village,
       price: parseFloat(price),
+      weight: consolidatedWeightInGrams,
       condition,
       description: description.trim(),
       phone: phone.trim(),
@@ -715,6 +730,46 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
               className="w-full px-4 py-2.5 rounded-xl border border-slate-300 bg-white text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal text-sm focus:ring-2 focus:ring-orange-500/20 focus:border-orange-500 focus:outline-none"
             />
           </div>
+        </div>
+
+        {/* Flexible Weight Input Selector supporting Gram (g) and Kilogram (kg) */}
+        <div>
+          <label className="block text-xs font-bold text-slate-800 uppercase tracking-wider mb-1.5">
+            Package / Item Weight (Optional)
+          </label>
+          <div className="flex rounded-xl border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500 transition">
+            <input
+              id="listing-weight-input"
+              type="number"
+              step="any"
+              min="0"
+              placeholder={weightUnit === 'kg' ? 'e.g. 1.5' : 'e.g. 500'}
+              value={weightValue}
+              onChange={(e) => setWeightValue(e.target.value)}
+              className="w-full px-4 py-2.5 bg-transparent text-slate-900 font-bold placeholder:text-slate-400 placeholder:font-normal text-sm focus:outline-none"
+            />
+            <div className="border-l border-slate-200 bg-slate-50 flex items-center shrink-0">
+              <select
+                id="listing-weight-unit-select"
+                value={weightUnit}
+                onChange={(e) => setWeightUnit(e.target.value as 'g' | 'kg')}
+                className="h-full px-3 py-2.5 bg-transparent text-slate-900 font-bold text-xs sm:text-sm focus:outline-none cursor-pointer border-none"
+              >
+                <option value="g">Gram (g)</option>
+                <option value="kg">Kilogram (kg)</option>
+              </select>
+            </div>
+          </div>
+          {weightValue && parseFloat(weightValue) > 0 && (
+            <p className="text-[11px] text-slate-500 mt-1 font-medium">
+              Normalized for delivery calculations:{' '}
+              <span className="font-bold text-orange-600">
+                {weightUnit === 'kg'
+                  ? `${Math.round(parseFloat(weightValue) * 1000)} g (${parseFloat(weightValue)} kg)`
+                  : `${Math.round(parseFloat(weightValue))} g (${(parseFloat(weightValue) / 1000).toFixed(2)} kg)`}
+              </span>
+            </p>
+          )}
         </div>
 
         {/* Location & Condition */}

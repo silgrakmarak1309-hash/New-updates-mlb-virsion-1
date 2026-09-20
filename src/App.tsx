@@ -958,9 +958,38 @@ export function App() {
       )
       .subscribe();
 
+    // Supabase Realtime subscription on public.delivery_orders for instant global orders state synchronization
+    const ordersChannel = client
+      .channel('realtime-global-delivery-orders-sync')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_orders' },
+        (payload: any) => {
+          if (!isMounted) return;
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          if (eventType === 'INSERT' && newRow) {
+            setDeliveryOrders((prev) => {
+              if (prev.some((o) => o.id === newRow.id || o.order_number === newRow.order_number)) {
+                return prev.map((o) => (o.id === newRow.id ? { ...o, ...newRow } : o));
+              }
+              return [newRow, ...prev];
+            });
+          } else if (eventType === 'UPDATE' && newRow) {
+            setDeliveryOrders((prev) =>
+              prev.map((o) => (o.id === newRow.id ? { ...o, ...newRow } : o))
+            );
+          } else if (eventType === 'DELETE' && oldRow) {
+            setDeliveryOrders((prev) => prev.filter((o) => o.id !== oldRow.id));
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
       client.removeChannel(profileChannel);
+      client.removeChannel(ordersChannel);
     };
   }, [currentUser?.id, currentUser?.email, currentUser?.phone]);
 

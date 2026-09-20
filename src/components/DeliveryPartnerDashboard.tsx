@@ -28,6 +28,9 @@ import {
   CreditCard,
   QrCode,
   Building,
+  Bell,
+  X,
+  Radio,
 } from 'lucide-react';
 import {
   DeliveryOrder,
@@ -40,6 +43,7 @@ import {
 import { DeliveryPartnerRegistration } from './DeliveryPartnerRegistration';
 import { PayoutRequestModal } from './PayoutRequestModal';
 import { supabase } from '../lib/supabase';
+import { playNotificationSound } from './GlobalNotificationManager';
 
 const getWhatsAppUrl = (phone: string, message: string) => {
   const cleanPhone = phone.replace(/\D/g, '');
@@ -96,6 +100,20 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
   const [showPayoutModal, setShowPayoutModal] = useState(false);
   const [actionSuccessMsg, setActionSuccessMsg] = useState<string | null>(null);
   const [overrideViewOrders, setOverrideViewOrders] = useState<boolean>(false);
+
+  // Real-time Notification State Hooks & Incoming Order Alert Banner
+  const [notifications, setNotifications] = useState<Array<{
+    id: string;
+    title: string;
+    message: string;
+    timestamp: string;
+    orderNumber?: string;
+    type: 'new_request' | 'status_update' | 'payout';
+    isRead: boolean;
+  }>>([]);
+  const [unreadCount, setUnreadCount] = useState<number>(0);
+  const [showNotificationsDrawer, setShowNotificationsDrawer] = useState<boolean>(false);
+  const [activeNewOrderBanner, setActiveNewOrderBanner] = useState<DeliveryOrder | null>(null);
 
   // New Shipment Creation state (for quick local order dispatch testing)
   const [newCustName, setNewCustName] = useState('Dilseng Sangma');
@@ -224,9 +242,77 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
       )
       .subscribe();
 
+    // Supabase Realtime subscription on public.delivery_orders for instant incoming delivery requests & status updates
+    const deliveryOrdersChannel = client
+      .channel(`driver-delivery-orders-sync-${currentUser.id || 'driver'}`)
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'delivery_orders' },
+        (payload: any) => {
+          if (!isMounted) return;
+          const { eventType, new: newRow, old: oldRow } = payload;
+
+          if (eventType === 'INSERT' && newRow) {
+            // Check if this is an eligible available delivery request
+            const isPendingOrder = newRow.status === 'pending';
+            const isPaymentVerified = newRow.payment_status === 'verified' || !newRow.payment_status;
+            const isNotSelfPickup = newRow.fulfillment_type !== 'self_pickup';
+            const isNotHeavy = !isHeavyItemCategory(undefined, newRow.item_description);
+
+            if (isPendingOrder && isPaymentVerified && isNotSelfPickup && isNotHeavy) {
+              try {
+                playNotificationSound();
+              } catch (_) {}
+
+              const notifItem = {
+                id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                title: '🚨 Nayi Delivery Request Aayi Hai!',
+                message: `Order #${newRow.order_number || 'New'} (${newRow.distance_km || 5} km) • Driver Earning: ₹${newRow.partner_earning || Math.round((newRow.delivery_fare || 40) * 0.8)}`,
+                timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                orderNumber: newRow.order_number,
+                type: 'new_request' as const,
+                isRead: false,
+              };
+
+              setNotifications((prev) => [notifItem, ...prev.slice(0, 19)]);
+              setUnreadCount((prev) => prev + 1);
+              setActiveNewOrderBanner(newRow);
+
+              // Auto-refresh full orders collection
+              onRefresh();
+            }
+          } else if (eventType === 'UPDATE' && newRow) {
+            // Check if this updated order belongs to this driver
+            if (newRow.delivery_partner_id === currentUser.id) {
+              if (newRow.status === 'success' || newRow.status === 'delivered') {
+                try {
+                  playNotificationSound();
+                } catch (_) {}
+
+                const notifItem = {
+                  id: `notif_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+                  title: '🎉 Delivery Confirmed by Buyer!',
+                  message: `Order #${newRow.order_number} confirmed! Payout ₹${newRow.partner_earning || 0} added to driver wallet balance.`,
+                  timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                  orderNumber: newRow.order_number,
+                  type: 'payout' as const,
+                  isRead: false,
+                };
+
+                setNotifications((prev) => [notifItem, ...prev.slice(0, 19)]);
+                setUnreadCount((prev) => prev + 1);
+              }
+            }
+            onRefresh();
+          }
+        }
+      )
+      .subscribe();
+
     return () => {
       isMounted = false;
       client.removeChannel(channel);
+      client.removeChannel(deliveryOrdersChannel);
     };
   }, [currentUser.id, currentUser.email, currentUser.phone]);
 
@@ -545,6 +631,99 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
                 <span className="hidden sm:inline">My Payout Wallet</span>
               </button>
 
+              {/* Real-time Order Notification Bell & Badge */}
+              <div className="relative">
+                <button
+                  id="driver_notifications_bell_btn"
+                  onClick={() => {
+                    setShowNotificationsDrawer(!showNotificationsDrawer);
+                    if (!showNotificationsDrawer) {
+                      setUnreadCount(0);
+                    }
+                  }}
+                  className={`p-2 rounded-xl text-xs font-bold transition flex items-center justify-center relative border ${
+                    unreadCount > 0
+                      ? 'bg-amber-500/20 text-amber-300 border-amber-500/50 shadow-lg shadow-amber-500/20 ring-2 ring-amber-500/30'
+                      : 'bg-slate-800 hover:bg-slate-700 text-slate-300 border-slate-700'
+                  }`}
+                  title="Live Order Notifications"
+                >
+                  <Bell className="w-4 h-4" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white font-black text-[10px] min-w-[18px] h-[18px] rounded-full flex items-center justify-center px-1 shadow-md animate-bounce">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {/* Notifications Dropdown Drawer */}
+                {showNotificationsDrawer && (
+                  <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-slate-900 border border-slate-700 rounded-2xl shadow-2xl z-50 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
+                    <div className="p-3.5 bg-slate-950 border-b border-slate-800 flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <Bell className="w-4 h-4 text-emerald-400" />
+                        <span className="font-bold text-xs text-white uppercase tracking-wider">
+                          Real-time Order Feed
+                        </span>
+                        <span className="bg-emerald-500/20 text-emerald-400 text-[10px] font-black px-2 py-0.5 rounded-full border border-emerald-500/30">
+                          LIVE
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {notifications.length > 0 && (
+                          <button
+                            onClick={() => {
+                              setNotifications([]);
+                              setUnreadCount(0);
+                            }}
+                            className="text-[10px] text-slate-400 hover:text-white"
+                          >
+                            Clear All
+                          </button>
+                        )}
+                        <button
+                          onClick={() => setShowNotificationsDrawer(false)}
+                          className="text-slate-400 hover:text-white"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    <div className="max-h-72 overflow-y-auto divide-y divide-slate-800/60 p-2 space-y-1.5">
+                      {notifications.length === 0 ? (
+                        <div className="p-6 text-center text-slate-400 text-xs space-y-1">
+                          <Radio className="w-6 h-6 text-slate-600 mx-auto animate-pulse" />
+                          <p className="font-semibold text-slate-300">Listening for live requests...</p>
+                          <p className="text-[10px] text-slate-500">
+                            New orders and dispatch updates will appear here automatically via Supabase Realtime.
+                          </p>
+                        </div>
+                      ) : (
+                        notifications.map((n) => (
+                          <div
+                            key={n.id}
+                            className={`p-2.5 rounded-xl border text-xs transition ${
+                              n.type === 'new_request'
+                                ? 'bg-amber-950/30 border-amber-500/40 text-amber-200'
+                                : 'bg-emerald-950/30 border-emerald-500/40 text-emerald-200'
+                            }`}
+                          >
+                            <div className="flex items-center justify-between font-bold text-[11px]">
+                              <span>{n.title}</span>
+                              <span className="text-[9px] text-slate-400">{n.timestamp}</span>
+                            </div>
+                            <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
+                              {n.message}
+                            </p>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* Quick Dispatch Demo Order Button */}
               <button
                 onClick={() => setShowNewOrderModal(true)}
@@ -570,6 +749,56 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
 
       {/* Main Driver App Body */}
       <main className="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8 space-y-6">
+        {/* Real-time Incoming Order Alert Banner */}
+        {activeNewOrderBanner && (
+          <div className="p-4 bg-gradient-to-r from-amber-950/95 via-orange-950/90 to-amber-950/95 border-2 border-amber-400 rounded-3xl shadow-2xl flex flex-col sm:flex-row sm:items-center justify-between gap-4 animate-in slide-in-from-top-4 duration-300">
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 shadow-lg font-black animate-bounce">
+                <Bike className="w-6 h-6" />
+              </div>
+              <div className="space-y-1">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2 py-0.5 rounded-full uppercase">
+                    New Live Order Available
+                  </span>
+                  <span className="text-white font-mono font-black text-sm">
+                    {activeNewOrderBanner.order_number}
+                  </span>
+                  <span className="text-emerald-400 font-mono font-bold text-xs bg-emerald-950/80 px-2 py-0.5 rounded border border-emerald-800/60">
+                    Earning: ₹{activeNewOrderBanner.partner_earning || Math.round((activeNewOrderBanner.delivery_fee || 40) * 0.8)}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-200">
+                  <strong>Pickup:</strong> {activeNewOrderBanner.pickup_address || 'Chandmari, Tura'} → <strong>Drop:</strong> {activeNewOrderBanner.delivery_address || 'Tura'}
+                </p>
+                <p className="text-[11px] text-amber-300/90">
+                  Item: {activeNewOrderBanner.item_description || 'Package'} • Distance: {activeNewOrderBanner.distance_km || 5} km
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              <button
+                onClick={() => {
+                  onAcceptOrder(activeNewOrderBanner.id);
+                  setActiveNewOrderBanner(null);
+                  setActionSuccessMsg(`Accepted order #${activeNewOrderBanner.order_number}! Order moved to Active Deliveries.`);
+                }}
+                className="px-4 py-2 bg-emerald-500 hover:bg-emerald-400 active:scale-95 text-slate-950 font-black text-xs rounded-xl shadow-lg transition flex items-center gap-1.5 cursor-pointer"
+              >
+                <CheckCircle2 className="w-4 h-4 text-slate-950" />
+                <span>Accept Delivery</span>
+              </button>
+              <button
+                onClick={() => setActiveNewOrderBanner(null)}
+                className="p-2 text-slate-400 hover:text-white rounded-xl hover:bg-white/10 transition"
+                title="Dismiss"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
         {/* Action Success Notification Toast */}
         {actionSuccessMsg && (
           <div className="p-4 bg-emerald-950/90 border border-emerald-500/50 rounded-2xl flex items-center justify-between gap-3 text-emerald-200 text-xs shadow-lg animate-in slide-in-from-top-2 duration-200">
@@ -943,11 +1172,21 @@ export const DeliveryPartnerDashboard: React.FC<DeliveryPartnerDashboardProps> =
         {/* 4. AVAILABLE DELIVERY REQUESTS (NEARBY ORDERS QUEUE) */}
         <section className="space-y-3">
           <div className="flex items-center justify-between flex-wrap gap-2">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <Package className="w-4 h-4 text-emerald-400" />
               <h2 className="text-sm font-extrabold uppercase tracking-wider text-slate-200">
                 Available Nearby Requests ({availableOrders.length})
               </h2>
+              {isDriverOnline ? (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-ping" />
+                  Real-time Radar Active
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">
+                  Duty Paused (Offline)
+                </span>
+              )}
             </div>
 
             <div className="flex items-center gap-2">

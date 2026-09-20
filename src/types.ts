@@ -27,10 +27,13 @@ export interface Listing extends LocalAddressFields {
   is_featured?: boolean;
   is_pro?: boolean;
   is_heavy_item?: boolean;
+  weight?: number;
   status: 'pending' | 'active' | 'rejected' | string;
   seller_id?: string;
   seller_name?: string;
   seller_verified?: boolean;
+  seller_latitude?: number;
+  seller_longitude?: number;
   views_count?: number;
   created_at?: string | number;
 }
@@ -45,6 +48,8 @@ export interface UserProfile extends LocalAddressFields {
   google_id?: string;
   city?: string;
   permanent_address?: string;
+  buyer_latitude?: number;
+  buyer_longitude?: number;
   role: 'customer' | 'seller' | 'delivery_partner' | 'admin' | 'super_admin' | 'user' | string;
   account_status?: 'active' | 'inactive';
   plan_status?: 'active' | 'inactive' | 'pending' | 'expired' | string;
@@ -55,6 +60,7 @@ export interface UserProfile extends LocalAddressFields {
   pro_expiry?: string | number;
   hardware_locked?: boolean;
   is_delivery_partner?: boolean;
+  is_seller?: boolean;
   is_approved_by_admin?: boolean;
   vehicle_type?: 'Bike' | 'Scooty' | 'Auto' | 'Commercial Auto' | string;
   vehicle_number?: string;
@@ -136,9 +142,14 @@ export interface DeliveryOrder extends LocalAddressFields {
   payment_screenshot_url?: string;
   is_heavy_item?: boolean;
   fulfillment_type?: 'home_delivery' | 'self_pickup' | string;
+  seller_id?: string;
   seller_name?: string;
   seller_phone?: string;
   seller_upi?: string;
+  buyer_latitude?: number;
+  buyer_longitude?: number;
+  seller_latitude?: number;
+  seller_longitude?: number;
   status:
     | 'pending'
     | 'pending_verification'
