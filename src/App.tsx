@@ -597,18 +597,27 @@ export function App() {
       if (profilesData) {
         setProfiles(profilesData);
         // Refresh active user wallet balance if present
-        setCurrentUser((prev) => {
-          if (!prev) return null;
-          const fresh = profilesData.find((p) => p.id === prev.id || p.email === prev.email);
-          if (fresh && typeof fresh.wallet_balance === 'number' && fresh.wallet_balance !== prev.wallet_balance) {
-            const updated = { ...prev, wallet_balance: fresh.wallet_balance };
-            try {
-              localStorage.setItem('mlb_active_user', JSON.stringify(updated));
-            } catch (_) {}
-            return updated;
-          }
-          return prev;
-        });
+        // YEH NAYA CODE WAHAN PASTE KAREIN
+setCurrentUser((prev) => {
+  if (!prev) return null;
+  const fresh = profilesData.find((p) => p.id === prev.id || p.email === prev.email);
+  if (fresh) {
+    const updated = { 
+      ...prev, 
+      ...fresh,
+      is_pro: fresh.is_pro,
+      pro_status: fresh.pro_status,
+      is_approved_by_admin: fresh.is_approved_by_admin,
+      wallet_balance: fresh.wallet_balance 
+    };
+    try {
+      localStorage.setItem('mlb_active_user', JSON.stringify(updated));
+    } catch (_) {}
+    return updated;
+  }
+  return prev;
+});
+        
       }
 
       // 3. Recharge Requests
