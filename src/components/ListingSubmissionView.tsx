@@ -335,137 +335,230 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
     setActivePhotoIndex(0);
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmitListing = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
-    // UNIFIED ACTIVE PLAN RESTRICTION FOR ALL CATEGORIES:
-    // (Sellers, Cab & Taxi, Travelers & Tour, Local Services, Shop owners, etc.)
-    // Only users with an active monthly subscription plan (plan_status === 'active' or is_pro === true) can post.
-    if (!hasActiveMonthlyPlan) {
-      setError(
-        'Posting Restricted! Free users can only act as Buyers to browse and purchase items. Please upgrade to a PRO Plan to post listings.'
-      );
-      return;
-    }
-
-    if (!title.trim() || !price || parseFloat(price) <= 0) {
-      setError('Please provide a valid listing title and price.');
-      return;
-    }
-
-    setSubmitting(true);
-    setError(null);
-
-    // Upload any pending or un-uploaded photos directly to Supabase Storage bucket "Listing image"
-    const uploadedPublicUrls: string[] = [];
-
-    for (let i = 0; i < photos.length; i++) {
-      const photo = photos[i];
-
-      // 1. If already uploaded to Supabase Storage and returned a public HTTP URL
-      if (photo.uploadedUrl && photo.uploadedUrl.startsWith('http')) {
-        uploadedPublicUrls.push(photo.uploadedUrl);
-      }
-      // 2. If photo.url is already an external web URL (and not a local blob: URL)
-      else if (photo.url && photo.url.startsWith('http') && !photo.url.startsWith('blob:')) {
-        uploadedPublicUrls.push(photo.url);
-      }
-      // 3. If we have the raw File object, upload directly to "Listing image"
-      else if (photo.file) {
-        try {
-          const publicUrl = await uploadListingImageToStorage(photo.file);
-          uploadedPublicUrls.push(publicUrl);
-        } catch (uploadErr: any) {
-          console.error(`Failed to upload ${photo.name} to "${LISTING_IMAGE_BUCKET}":`, uploadErr);
-          setError(`Image upload failed for "${photo.name}": ${uploadErr.message || uploadErr}`);
-          setSubmitting(false);
-          return;
-        }
-      }
-      // 4. If photo is a dataURL, convert to blob and upload directly to "Listing image"
-      else if (photo.url && photo.url.startsWith('data:')) {
-        try {
-          const blob = dataURLtoBlob(photo.url);
-          const publicUrl = await uploadListingImageToStorage(blob, photo.name);
-          uploadedPublicUrls.push(publicUrl);
-        } catch (uploadErr: any) {
-          console.error(`Failed to upload base64 image to "${LISTING_IMAGE_BUCKET}":`, uploadErr);
-        }
-      }
-    }
-
-    // Default fallback image if no photo was uploaded
-    const finalImageUrls: string[] =
-      uploadedPublicUrls.length > 0
-        ? uploadedPublicUrls
-        : [
-            'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80',
-          ];
-
-    const finalImagesJson = JSON.stringify(finalImageUrls);
-
-    const finalLocationName =
-      location.trim() ||
-      `${locationState.village ? locationState.village + ', ' : ''}${locationState.block}, ${locationState.district}`;
-
-    const finalListingId = generateUuid();
-    const finalSellerId = ensureUuid(userId);
-
-    // 2. Extract numeric weight value and selected unit identifier
-    // 3. Normalization rule: If unit is "kg", multiply input value by 1000 to convert into grams
-    let consolidatedWeightInGrams: number | undefined = undefined;
-    const parsedWeight = parseFloat(weightValue);
-    if (!isNaN(parsedWeight) && parsedWeight > 0) {
-      if (weightUnit === 'kg') {
-        consolidatedWeightInGrams = Math.round(parsedWeight * 1000);
-      } else {
-        consolidatedWeightInGrams = Math.round(parsedWeight);
-      }
-    }
-
-    const listingPayload: Listing = {
-      id: finalListingId,
-      title: title.trim(),
-      category_name: category,
-      location_name: finalLocationName,
-      state_name: locationState.state || 'Meghalaya',
-      district: locationState.district,
-      block: locationState.block,
-      village: locationState.village,
-      price: parseFloat(price),
-      weight: consolidatedWeightInGrams,
-      condition,
-      description: description.trim(),
-      phone: phone.trim(),
-      whatsapp: whatsapp.trim() || phone.trim(),
-      images_json: finalImagesJson,
-      image_urls: finalImageUrls,
-      is_featured: isProUser,
-      is_pro: isProUser,
-      status: 'pending', // Strict moderation requirement
-      seller_id: finalSellerId,
-      seller_name: userName,
-      seller_verified: true,
-      views_count: 1,
-      created_at: new Date().toISOString(),
-    };
-
     try {
-      if (supabase) {
-        const { error: dbError } = await supabase.from('listings').insert([listingPayload]);
-        if (dbError) {
-          console.warn('Supabase listing insert notice:', dbError.message);
+      // UNIFIED ACTIVE PLAN RESTRICTION FOR ALL CATEGORIES:
+      // (Sellers, Cab & Taxi, Travelers & Tour, Local Services, Shop owners, etc.)
+      // Only users with an active monthly subscription plan (plan_status === 'active' or is_pro === true) can post.
+      if (!hasActiveMonthlyPlan) {
+        setError(
+          'Posting Restricted! Free users can only act as Buyers to browse and purchase items. Please upgrade to a PRO Plan to post listings.'
+        );
+        return;
+      }
+
+      const trimmedTitle = (title || '').trim();
+      const parsedPrice = parseFloat(price);
+      if (!trimmedTitle || isNaN(parsedPrice) || parsedPrice <= 0) {
+        setError('Please provide a valid listing title and price.');
+        return;
+      }
+
+      setSubmitting(true);
+      setError(null);
+
+      // 1. Strict FormData extraction for 'weight_value' and 'weight_unit' with state fallback
+      let rawWeightValue: any = weightValue;
+      let rawWeightUnit: any = weightUnit;
+
+      try {
+        if (e?.currentTarget && typeof (e.currentTarget as any).elements !== 'undefined') {
+          const formData = new FormData(e.currentTarget);
+          const formWeightVal = formData.get('weight_value');
+          const formWeightUnit = formData.get('weight_unit');
+
+          if (formWeightVal !== null && formWeightVal !== undefined && String(formWeightVal).trim() !== '') {
+            rawWeightValue = formWeightVal;
+          }
+          if (formWeightUnit !== null && formWeightUnit !== undefined && String(formWeightUnit).trim() !== '') {
+            rawWeightUnit = formWeightUnit;
+          }
+        }
+      } catch (formErr) {
+        console.warn('FormData extraction non-blocking notice, falling back to state:', formErr);
+      }
+
+      // 2. Strict fallback checking so undefined/null/malformed states gracefully default to valid number pattern
+      const safeWeightUnit = (
+        typeof rawWeightUnit === 'string' && rawWeightUnit.toLowerCase().trim() === 'kg'
+          ? 'kg'
+          : 'g'
+      ) as 'g' | 'kg';
+
+      let numericWeightVal = 0;
+      if (rawWeightValue !== null && rawWeightValue !== undefined) {
+        const cleanedWeightStr = String(rawWeightValue).replace(/[^0-9.]/g, '').trim();
+        const parsedNum = parseFloat(cleanedWeightStr);
+        if (!isNaN(parsedNum) && Number.isFinite(parsedNum) && parsedNum > 0) {
+          numericWeightVal = parsedNum;
         }
       }
-      onSuccess(listingPayload);
-    } catch (err: any) {
-      console.error('Error submitting listing:', err);
-      // Fallback success locally
-      onSuccess(listingPayload);
+
+      // Normalization rule: If unit is "kg", multiply input value by 1000 to convert into grams
+      let consolidatedWeightInGrams: number = 0;
+      if (numericWeightVal > 0) {
+        consolidatedWeightInGrams =
+          safeWeightUnit === 'kg'
+            ? Math.round(numericWeightVal * 1000)
+            : Math.round(numericWeightVal);
+      }
+
+      // Upload any pending or un-uploaded photos directly to Supabase Storage bucket "Listing image"
+      const uploadedPublicUrls: string[] = [];
+
+      for (let i = 0; i < photos.length; i++) {
+        const photo = photos[i];
+
+        // 1. If already uploaded to Supabase Storage and returned a public HTTP URL
+        if (photo.uploadedUrl && photo.uploadedUrl.startsWith('http')) {
+          uploadedPublicUrls.push(photo.uploadedUrl);
+        }
+        // 2. If photo.url is already an external web URL (and not a local blob: URL)
+        else if (photo.url && photo.url.startsWith('http') && !photo.url.startsWith('blob:')) {
+          uploadedPublicUrls.push(photo.url);
+        }
+        // 3. If we have the raw File object, upload directly to "Listing image"
+        else if (photo.file) {
+          try {
+            const publicUrl = await uploadListingImageToStorage(photo.file);
+            uploadedPublicUrls.push(publicUrl);
+          } catch (uploadErr: any) {
+            console.error(`Failed to upload ${photo.name} to "${LISTING_IMAGE_BUCKET}":`, uploadErr);
+            setError(`Image upload failed for "${photo.name}": ${uploadErr?.message || uploadErr}`);
+            setSubmitting(false);
+            return;
+          }
+        }
+        // 4. If photo is a dataURL, convert to blob and upload directly to "Listing image"
+        else if (photo.url && photo.url.startsWith('data:')) {
+          try {
+            const blob = dataURLtoBlob(photo.url);
+            const publicUrl = await uploadListingImageToStorage(blob, photo.name);
+            uploadedPublicUrls.push(publicUrl);
+          } catch (uploadErr: any) {
+            console.error(`Failed to upload base64 image to "${LISTING_IMAGE_BUCKET}":`, uploadErr);
+          }
+        }
+      }
+
+      // Default fallback image if no photo was uploaded
+      const finalImageUrls: string[] =
+        uploadedPublicUrls.length > 0
+          ? uploadedPublicUrls
+          : [
+              'https://images.unsplash.com/photo-1526170375885-4d8ecf77b99f?w=800&auto=format&fit=crop&q=80',
+            ];
+
+      const finalImagesJson = JSON.stringify(finalImageUrls);
+
+      const finalLocationName =
+        location.trim() ||
+        `${locationState.village ? locationState.village + ', ' : ''}${locationState.block}, ${locationState.district}`;
+
+      const finalListingId = generateUuid();
+      const finalSellerId = ensureUuid(userId);
+
+      // 3. Validate that the weight numeric object maps perfectly to the database table insert parameter array payload
+      const safeNumericWeight =
+        Number.isFinite(consolidatedWeightInGrams) && consolidatedWeightInGrams > 0
+          ? Number(consolidatedWeightInGrams)
+          : null;
+
+      const isHeavyItem = (safeNumericWeight || 0) >= 10000; // >= 10kg
+
+      const listingPayload: Listing = {
+        id: finalListingId,
+        title: trimmedTitle,
+        category_name: category,
+        location_name: finalLocationName,
+        state_name: locationState.state || 'Meghalaya',
+        district: locationState.district,
+        block: locationState.block,
+        village: locationState.village,
+        price: parsedPrice,
+        weight: safeNumericWeight ? safeNumericWeight : undefined,
+        is_heavy_item: isHeavyItem,
+        condition,
+        description: (description || '').trim(),
+        phone: (phone || '').trim(),
+        whatsapp: (whatsapp || '').trim() || (phone || '').trim(),
+        images_json: finalImagesJson,
+        image_urls: finalImageUrls,
+        is_featured: Boolean(isProUser),
+        is_pro: Boolean(isProUser),
+        status: 'pending', // Strict moderation requirement
+        seller_id: finalSellerId,
+        seller_name: userName,
+        seller_verified: true,
+        views_count: 1,
+        created_at: new Date().toISOString(),
+      };
+
+      // Database insert parameter payload mapping
+      const dbInsertPayload: Record<string, any> = {
+        id: finalListingId,
+        title: trimmedTitle,
+        category_name: category,
+        location_name: finalLocationName,
+        state_name: locationState.state || 'Meghalaya',
+        district: locationState.district,
+        block: locationState.block,
+        village: locationState.village,
+        price: parsedPrice,
+        weight: safeNumericWeight,
+        is_heavy_item: isHeavyItem,
+        condition,
+        description: (description || '').trim(),
+        phone: (phone || '').trim(),
+        whatsapp: (whatsapp || '').trim() || (phone || '').trim(),
+        images_json: finalImagesJson,
+        image_urls: finalImageUrls,
+        is_featured: Boolean(isProUser),
+        is_pro: Boolean(isProUser),
+        status: 'pending',
+        seller_id: finalSellerId,
+        seller_name: userName,
+        seller_verified: true,
+        views_count: 1,
+        created_at: new Date().toISOString(),
+      };
+
+      try {
+        if (supabase) {
+          let { error: dbError } = await supabase.from('listings').insert([dbInsertPayload]);
+          // Schema fallback if column "weight" is absent in target remote database
+          if (dbError && dbError.message && dbError.message.toLowerCase().includes('weight')) {
+            console.warn('Retrying listing insert without optional weight column:', dbError.message);
+            const { weight, ...fallbackPayload } = dbInsertPayload;
+            const retryRes = await supabase.from('listings').insert([fallbackPayload]);
+            dbError = retryRes.error;
+          }
+          if (dbError) {
+            console.warn('Supabase listing insert notice:', dbError.message);
+          }
+        }
+      } catch (dbErr: any) {
+        console.error('Supabase listing insert execution handled error:', dbErr);
+      }
+
+      try {
+        onSuccess(listingPayload);
+      } catch (onSuccessErr: any) {
+        console.error('onSuccess callback invocation handled error:', onSuccessErr);
+      }
+    } catch (criticalErr: any) {
+      console.error('Structured error boundary caught handleSubmitListing error:', criticalErr);
+      setError(
+        criticalErr?.message || 'An unexpected error occurred while processing listing submission. Please try again.'
+      );
     } finally {
       setSubmitting(false);
     }
   };
+
+  const handleSubmit = handleSubmitListing;
 
   const activePhoto = photos[activePhotoIndex] || photos[0];
 
@@ -563,7 +656,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="p-6 sm:p-8 space-y-5">
+      <form onSubmit={handleSubmitListing} className="p-6 sm:p-8 space-y-5">
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-xs p-3.5 rounded-xl flex items-center gap-2">
             <AlertCircle className="w-4 h-4 shrink-0 text-red-500" />
@@ -792,6 +885,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
           <div className="flex rounded-xl border border-slate-300 bg-white overflow-hidden focus-within:ring-2 focus-within:ring-orange-500/20 focus-within:border-orange-500 transition">
             <input
               id="listing-weight-input"
+              name="weight_value"
               type="number"
               step="any"
               min="0"
@@ -803,6 +897,7 @@ export const ListingSubmissionView: React.FC<ListingSubmissionViewProps> = ({
             <div className="border-l border-slate-200 bg-slate-50 flex items-center shrink-0">
               <select
                 id="listing-weight-unit-select"
+                name="weight_unit"
                 value={weightUnit}
                 onChange={(e) => setWeightUnit(e.target.value as 'g' | 'kg')}
                 className="h-full px-3 py-2.5 bg-transparent text-slate-900 font-bold text-xs sm:text-sm focus:outline-none cursor-pointer border-none"
