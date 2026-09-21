@@ -114,8 +114,8 @@ export async function geocodeAddress(
           const lon = parseFloat(data[0].lon);
           if (Number.isFinite(lat) && Number.isFinite(lon) && !isNaN(lat) && !isNaN(lon)) {
             return {
-              latitude: Number(lat.toFixed(6)),
-              longitude: Number(lon.toFixed(6)),
+              latitude: Math.round(lat * 1000000) / 1000000,
+              longitude: Math.round(lon * 1000000) / 1000000,
             };
           }
         }
@@ -166,10 +166,10 @@ export function calculateHaversineDistanceKm(
   sellerLat?: number | null,
   sellerLon?: number | null
 ): number {
-  const bLat = Number(buyerLat);
-  const bLon = Number(buyerLon);
-  const sLat = Number(sellerLat);
-  const sLon = Number(sellerLon);
+  const bLat = Number(buyerLat ?? 0);
+  const bLon = Number(buyerLon ?? 0);
+  const sLat = Number(sellerLat ?? 0);
+  const sLon = Number(sellerLon ?? 0);
 
   // If coordinates are invalid or zero, return boundary floor 0.5 km
   if (
@@ -246,11 +246,11 @@ export function calculateDynamicDeliveryFee(
   const totalDeliveryFee = Math.round(Number.isFinite(rawSum) ? rawSum : 20);
 
   return {
-    baseFlatDriverFee,
-    fuelOperationalFactor: Number(fuelOperationalFactor.toFixed(2)),
-    productPayloadMultiplier: Number(productPayloadMultiplier.toFixed(2)),
-    totalDeliveryFee,
-    distanceKm: Number(distance.toFixed(2)),
+    baseFlatDriverFee: 20,
+    fuelOperationalFactor: Math.round(fuelOperationalFactor * 100) / 100,
+    productPayloadMultiplier: Math.round(productPayloadMultiplier * 100) / 100,
+    totalDeliveryFee: totalDeliveryFee,
+    distanceKm: Math.round(distance * 100) / 100,
   };
 }
 
