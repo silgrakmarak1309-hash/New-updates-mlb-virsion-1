@@ -170,14 +170,113 @@ export async function fetchUserCart(userId?: string): Promise<CartItem[]> {
 }
 
 /**
+ * Helper to extract canonical unique identifier for a listing's seller
+ */
+export function getListingSellerKey(listing?: Listing | null): string {
+  if (!listing) return '';
+  if (listing.seller_id) return `id_${listing.seller_id}`;
+  if (listing.seller_phone) return `phone_${listing.seller_phone.replace(/\D/g, '')}`;
+  if (listing.phone) return `phone_${listing.phone.replace(/\D/g, '')}`;
+  if (listing.seller_name) return `name_${listing.seller_name.trim().toLowerCase()}`;
+  return `listing_${listing.id}`;
+}
+
+/**
+ * Helper to extract a friendly display name for a listing's seller
+ */
+export function getListingSellerDisplayName(listing?: Listing | null): string {
+  if (!listing) return 'Current Seller';
+  return (
+    listing.seller_name ||
+    (listing.location_name ? `${listing.location_name} Vendor` : 'Verified Vendor')
+  );
+}
+
+/**
+ * Inspects a cart and resolves the active seller of the items currently in it
+ */
+export function getCartActiveSeller(cart: CartItem[]): {
+  sellerKey: string;
+  sellerName: string;
+  sellerLat?: number;
+  sellerLon?: number;
+} | null {
+  if (!cart || cart.length === 0) return null;
+  for (const item of cart) {
+    if (item.listing) {
+      const key = getListingSellerKey(item.listing);
+      if (key) {
+        return {
+          sellerKey: key,
+          sellerName: getListingSellerDisplayName(item.listing),
+          sellerLat: item.listing.seller_latitude,
+          sellerLon: item.listing.seller_longitude,
+        };
+      }
+    }
+  }
+  return null;
+}
+
+/**
+ * Checks whether adding a new listing would conflict with existing sellers in cart
+ */
+export function checkCartSellerConflict(
+  cart: CartItem[],
+  newListing?: Listing | null
+): {
+  hasConflict: boolean;
+  existingSellerName?: string;
+  newSellerName?: string;
+  existingSellerKey?: string;
+  newSellerKey?: string;
+  cartItemCount?: number;
+} {
+  if (!cart || cart.length === 0 || !newListing) {
+    return { hasConflict: false };
+  }
+
+  const activeSeller = getCartActiveSeller(cart);
+  if (!activeSeller || !activeSeller.sellerKey) {
+    return { hasConflict: false };
+  }
+
+  const newSellerKey = getListingSellerKey(newListing);
+  if (!newSellerKey) {
+    return { hasConflict: false };
+  }
+
+  if (activeSeller.sellerKey !== newSellerKey) {
+    return {
+      hasConflict: true,
+      existingSellerName: activeSeller.sellerName,
+      newSellerName: getListingSellerDisplayName(newListing),
+      existingSellerKey: activeSeller.sellerKey,
+      newSellerKey,
+      cartItemCount: cart.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0),
+    };
+  }
+
+  return { hasConflict: false };
+}
+
+/**
  * Add a listing to cart or increment quantity if already present.
- * Instant local persistence + live badge update + Android Status Bar push notification + Supabase upsert.
+ * Restricts cart to a single seller at a time (like Swiggy / Zepto) to ensure accurate hyperlocal delivery distance.
  */
 export async function addToCart(
   userId?: string,
   listingOrId?: Listing | string,
-  quantityToAdd: number = 1
-): Promise<{ success: boolean; updatedItem?: CartItem; error?: string }> {
+  quantityToAdd: number = 1,
+  options?: { forceReplaceCart?: boolean }
+): Promise<{
+  success: boolean;
+  updatedItem?: CartItem;
+  conflict?: boolean;
+  existingSellerName?: string;
+  newSellerName?: string;
+  error?: string;
+}> {
   try {
     if (!listingOrId) {
       return { success: false, error: 'Listing or ID is required' };
@@ -192,7 +291,29 @@ export async function addToCart(
     const nowTimestamp = new Date().toISOString();
 
     // 1. Read existing local cart
-    const currentCart = getStoredLocalCart(userId);
+    let currentCart = getStoredLocalCart(userId);
+
+    // Multi-Seller Check: If cart already has items from another seller
+    if (currentCart.length > 0 && listingObj) {
+      const conflict = checkCartSellerConflict(currentCart, listingObj);
+      if (conflict.hasConflict) {
+        if (!options?.forceReplaceCart) {
+          // Return conflict to trigger confirmation modal or prompt
+          return {
+            success: false,
+            conflict: true,
+            existingSellerName: conflict.existingSellerName,
+            newSellerName: conflict.newSellerName,
+            error: `Your cart already contains items from "${conflict.existingSellerName}". Hyperlocal delivery requires items from a single seller per order.`,
+          };
+        } else {
+          // User confirmed clearing cart: clear local and database cart first
+          await clearUserCart(userId);
+          currentCart = [];
+        }
+      }
+    }
+
     const existingIndex = currentCart.findIndex(
       (item) => String(item.listing_id) === String(listingId)
     );
@@ -324,12 +445,20 @@ export async function addToCart(
 }
 
 /**
- * Direct helper function for product listing buttons: handleAddToCart(listingOrId, quantity)
+ * Direct helper function for product listing buttons: handleAddToCart(listingOrId, quantity, options)
  */
 export async function handleAddToCart(
   listingOrId: Listing | string,
-  quantityToAdd: number = 1
-): Promise<{ success: boolean; updatedItem?: CartItem; error?: string }> {
+  quantityToAdd: number = 1,
+  options?: { forceReplaceCart?: boolean }
+): Promise<{
+  success: boolean;
+  updatedItem?: CartItem;
+  conflict?: boolean;
+  existingSellerName?: string;
+  newSellerName?: string;
+  error?: string;
+}> {
   let userId: string | undefined;
   try {
     const rawUser = localStorage.getItem('mlb_current_user');
@@ -339,7 +468,19 @@ export async function handleAddToCart(
     }
   } catch (_) {}
 
-  return addToCart(userId, listingOrId, quantityToAdd);
+  const result = await addToCart(userId, listingOrId, quantityToAdd, options);
+
+  // If conflict occurs and caller didn't pass forceReplaceCart, prompt user via window.confirm as fallback
+  if (result.conflict && !options?.forceReplaceCart && typeof window !== 'undefined') {
+    const confirmed = window.confirm(
+      `Your cart already contains items from "${result.existingSellerName}".\n\nHyperlocal delivery requires items from a single seller per order.\n\nDo you want to clear your current cart and add this item from "${result.newSellerName}"?`
+    );
+    if (confirmed) {
+      return addToCart(userId, listingOrId, quantityToAdd, { forceReplaceCart: true });
+    }
+  }
+
+  return result;
 }
 
 /**

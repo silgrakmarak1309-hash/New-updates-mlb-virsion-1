@@ -20,6 +20,8 @@ export interface DynamicDeliveryFeeCalculation {
   baseFlatDriverFee: number;
   fuelOperationalFactor: number;
   productPayloadMultiplier: number;
+  rawSum: number;
+  platformCommission: number;
   totalDeliveryFee: number;
   distanceKm: number;
 }
@@ -239,16 +241,23 @@ export function calculateDynamicDeliveryFee(
   const payloadMass = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 0.1;
   const productPayloadMultiplier = payloadMass * 5;
 
-  // 4. Summation
+  // 4. Calculate the raw sum (Base + Fuel + Payload)
   const rawSum = baseFlatDriverFee + fuelOperationalFactor + productPayloadMultiplier;
 
-  // 5. Final Math.round() parsing wrapper
-  const totalDeliveryFee = Math.round(Number.isFinite(rawSum) ? rawSum : 20);
+  // 5. Calculate 20% Platform Commission
+  const commission = rawSum * 0.20;
+
+  // 6. The totalDeliveryFee should be Math.round(rawSum + commission)
+  const totalDeliveryFee = Math.round(
+    Number.isFinite(rawSum + commission) ? rawSum + commission : 24
+  );
 
   return {
     baseFlatDriverFee: 20,
     fuelOperationalFactor: Math.round(fuelOperationalFactor * 100) / 100,
     productPayloadMultiplier: Math.round(productPayloadMultiplier * 100) / 100,
+    rawSum: Math.round(rawSum * 100) / 100,
+    platformCommission: Math.round(commission * 100) / 100,
     totalDeliveryFee: totalDeliveryFee,
     distanceKm: Math.round(distance * 100) / 100,
   };

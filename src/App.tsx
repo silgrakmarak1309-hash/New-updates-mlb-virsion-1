@@ -25,6 +25,7 @@ import {
   ShoppingCart,
   Check,
   Search,
+  AlertTriangle,
 } from 'lucide-react';
 import { supabase } from './lib/supabase';
 import { generateUuid, ensureUuid, isUuid } from './lib/uuid';
@@ -68,7 +69,7 @@ import { SearchModal } from './components/SearchModal';
 import { GlobalToastContainer, NotificationBell } from './components/NotificationCenter';
 import GlobalNotificationManager, { playNotificationSound } from './components/GlobalNotificationManager';
 import { PolicyType } from './types';
-import { fetchUserCart, addToCart, clearUserCart, getStoredLocalCart } from './lib/cart';
+import { fetchUserCart, addToCart, clearUserCart, getStoredLocalCart, checkCartSellerConflict } from './lib/cart';
 import {
   sendPushNotification,
   sendOrderAlertToPartner,
@@ -317,6 +318,12 @@ export function App() {
     return () => window.removeEventListener('mlb_cart_updated', handleCartUpdated);
   }, [currentUser?.id]);
 
+  const [sellerConflictModal, setSellerConflictModal] = useState<{
+    newListing: Listing;
+    existingSellerName: string;
+    newSellerName: string;
+  } | null>(null);
+
   const handleAddToCart = async (listingOrId: Listing | string) => {
     const listingId = typeof listingOrId === 'string' ? listingOrId : listingOrId.id;
     const targetListing =
@@ -326,6 +333,20 @@ export function App() {
     const listingTitle = targetListing?.title || 'Product Item';
 
     try {
+      // Check seller conflict against existing cart items
+      const currentCart = getStoredLocalCart(currentUser?.id);
+      if (currentCart.length > 0 && targetListing) {
+        const conflict = checkCartSellerConflict(currentCart, targetListing);
+        if (conflict.hasConflict) {
+          setSellerConflictModal({
+            newListing: targetListing,
+            existingSellerName: conflict.existingSellerName || 'Current Seller',
+            newSellerName: conflict.newSellerName || 'New Seller',
+          });
+          return { success: false, conflict: true };
+        }
+      }
+
       // Optimistic instant cart update & local persistence + push alert
       const res = await addToCart(currentUser?.id, targetListing || listingId, 1);
       if (res.success) {
@@ -336,6 +357,13 @@ export function App() {
         setTimeout(() => {
           setCartToast((prev) => ({ ...prev, visible: false }));
         }, 3000);
+        return res;
+      } else if (res.conflict) {
+        setSellerConflictModal({
+          newListing: targetListing || (listings.find((l) => l.id === listingId) as Listing),
+          existingSellerName: res.existingSellerName || 'Current Seller',
+          newSellerName: res.newSellerName || 'New Seller',
+        });
         return res;
       } else {
         dispatchAppToast({
@@ -4317,6 +4345,64 @@ setCurrentUser((prev) => {
         onAddToCart={(item) => handleAddToCart(item)}
         isAdmin={false}
       />
+
+      {/* Single-Seller Cart Conflict Modal (Swiggy / Zepto Style) */}
+      {sellerConflictModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-150">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-200 text-center space-y-4 animate-in zoom-in-95 duration-200">
+            <div className="w-14 h-14 rounded-2xl bg-amber-100 text-amber-600 flex items-center justify-center mx-auto shadow-inner">
+              <AlertTriangle className="w-7 h-7 stroke-[2.5]" />
+            </div>
+
+            <div className="space-y-2">
+              <h3 className="text-lg font-black text-slate-900">Replace Cart Items?</h3>
+              <p className="text-xs text-slate-600 leading-relaxed text-left bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                Your cart currently contains items from{' '}
+                <strong className="text-slate-900 font-bold underline decoration-amber-400">
+                  {sellerConflictModal.existingSellerName}
+                </strong>
+                .<br /><br />
+                Hyperlocal fast delivery calculates route & charges from a <strong>single seller location</strong>.
+                Would you like to discard the existing cart and start a fresh order with items from{' '}
+                <strong className="text-orange-600 font-bold">
+                  {sellerConflictModal.newSellerName}
+                </strong>
+                ?
+              </p>
+            </div>
+
+            <div className="flex items-center gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => setSellerConflictModal(null)}
+                className="flex-1 py-3 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-2xl text-xs transition cursor-pointer"
+              >
+                Keep Current Cart
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  const modalData = sellerConflictModal;
+                  setSellerConflictModal(null);
+                  const res = await addToCart(currentUser?.id, modalData.newListing, 1, {
+                    forceReplaceCart: true,
+                  });
+                  if (res.success) {
+                    setCartToast({
+                      message: `Cart cleared & added from ${modalData.newSellerName}!`,
+                      visible: true,
+                    });
+                    setTimeout(() => setCartToast((prev) => ({ ...prev, visible: false })), 3000);
+                  }
+                }}
+                className="flex-1 py-3 px-4 bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white font-black rounded-2xl text-xs transition shadow-md shadow-orange-600/20 cursor-pointer active:scale-98"
+              >
+                Clear Cart & Add
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Cart Toast Notification */}
       {cartToast.visible && (

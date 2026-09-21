@@ -283,6 +283,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   const dynamicDeliveryCalc = calculateDynamicDeliveryFee(safeDistanceKm, safeWeightKg);
   const rawPrice = Number(listing?.price);
   const productPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0;
+  const isUnderMinimumOrder = productPrice < 200;
   const rawDeliveryFee = Number(dynamicDeliveryCalc?.totalDeliveryFee);
   const deliveryFee =
     fulfillmentType === 'home_delivery' && !isHeavy
@@ -356,6 +357,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     }
 
     // 3. Verify Product Order Details
+    if (productPrice < 200) {
+      setErrorMsg('Minimum order value must be ₹200 to place an order.');
+      return;
+    }
     if (!buyerName.trim()) {
       setErrorMsg('Please enter your full name.');
       return;
@@ -835,6 +840,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <span>Payload Multiplier (0.1 kg × ₹5/kg):</span>
                         <span className="font-semibold text-slate-700">₹{(dynamicDeliveryCalc.productPayloadMultiplier ?? 0).toFixed(1)}</span>
                       </div>
+                      <div className="flex justify-between text-amber-900 font-medium">
+                        <span>Platform Commission (20%):</span>
+                        <span className="font-semibold text-amber-900">₹{(dynamicDeliveryCalc.platformCommission ?? 0).toFixed(1)}</span>
+                      </div>
                       <div className="border-t border-slate-200 pt-1 flex justify-between font-bold text-slate-800">
                         <span>Delivery Charge (Math.round):</span>
                         <span className="text-orange-600 text-xs">₹{dynamicDeliveryCalc.totalDeliveryFee}</span>
@@ -1092,9 +1101,9 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
               <button
                 id="checkout_pay_now_btn"
                 type="submit"
-                disabled={!termsAccepted || isSubmitting}
+                disabled={!termsAccepted || isSubmitting || isUnderMinimumOrder}
                 className={`flex-[2] py-3.5 px-6 font-black rounded-2xl text-xs sm:text-sm transition shadow-lg flex items-center justify-center gap-2 ${
-                  termsAccepted && !isSubmitting
+                  termsAccepted && !isSubmitting && !isUnderMinimumOrder
                     ? 'bg-gradient-to-r from-orange-600 to-amber-600 hover:from-orange-700 hover:to-amber-700 text-white cursor-pointer active:scale-98 shadow-orange-600/20'
                     : 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none'
                 }`}
@@ -1109,6 +1118,19 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                 )}
               </button>
             </div>
+
+            {/* Minimum Order Value Warning */}
+            {isUnderMinimumOrder && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-center space-y-1">
+                <p className="text-xs font-bold text-red-600 flex items-center justify-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Minimum order value must be ₹200 to place an order.</span>
+                </p>
+                <p className="text-[11px] text-red-500 font-medium">
+                  Current item subtotal: ₹{formatPrice(productPrice)}. Please add more items to your cart to reach the ₹200 minimum order threshold.
+                </p>
+              </div>
+            )}
           </form>
         )}
       </div>

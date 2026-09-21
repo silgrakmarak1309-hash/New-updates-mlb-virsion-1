@@ -493,7 +493,7 @@ export default function CartPage({
             {/* Proceed to Checkout Button */}
             <button
               type="button"
-              disabled={!termsAccepted || cartItems.length === 0}
+              disabled={!termsAccepted || cartItems.length === 0 || subtotal < 200}
               onClick={() => onProceedToCheckout && onProceedToCheckout(cartItems, grandTotal, deliveryCharges)}
               className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-sm rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-98 disabled:cursor-not-allowed"
             >
@@ -501,6 +501,19 @@ export default function CartPage({
               <span>Proceed to Checkout</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            {/* Minimum Order Value Warning */}
+            {subtotal < 200 && cartItems.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-center space-y-1">
+                <p className="text-xs font-bold text-red-600 flex items-center justify-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Minimum order value must be ₹200 to place an order.</span>
+                </p>
+                <p className="text-[11px] text-red-500 font-medium">
+                  Current items subtotal: ₹{subtotal.toLocaleString('en-IN')} (Add ₹{(200 - subtotal).toLocaleString('en-IN')} more to checkout)
+                </p>
+              </div>
+            )}
 
             <div className="text-[10px] text-slate-400 text-center space-y-1 pt-1">
               <div className="flex items-center justify-center gap-1 text-slate-600 font-semibold">

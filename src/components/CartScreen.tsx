@@ -29,6 +29,8 @@ import {
   updateCartItemQuantity,
   removeCartItem,
   clearUserCart,
+  getCartActiveSeller,
+  getListingSellerKey,
 } from '../lib/cart';
 import { supabase } from '../lib/supabase';
 import { PolicyModal } from './PolicyModal';
@@ -204,16 +206,16 @@ export const CartScreen: React.FC<CartScreenProps> = ({
     return acc + price * qty;
   }, 0);
 
-  // Dynamic Distance Vector Calculation via Haversine geometric algorithm
-  // Enforcing an absolute boundary floor value of 0.5 km
+  // Single-seller resolution
+  const activeSeller = getCartActiveSeller(cartItems);
   const primaryListing = cartItems[0]?.listing;
   const vendorCoords = getListingVendorCoordinates(primaryListing);
   const buyerCoords = getUserBuyerCoordinates(currentUser);
 
   const buyerLat = currentUser?.buyer_latitude ?? buyerCoords.latitude;
   const buyerLon = currentUser?.buyer_longitude ?? buyerCoords.longitude;
-  const sellerLat = primaryListing?.seller_latitude ?? vendorCoords.latitude;
-  const sellerLon = primaryListing?.seller_longitude ?? vendorCoords.longitude;
+  const sellerLat = activeSeller?.sellerLat ?? primaryListing?.seller_latitude ?? vendorCoords.latitude;
+  const sellerLon = activeSeller?.sellerLon ?? primaryListing?.seller_longitude ?? vendorCoords.longitude;
 
   const distanceKm =
     cartItems.length > 0
@@ -224,6 +226,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
   // - Base Flat Driver Service Fee: ₹20
   // - Fuel Operational Matrix Factor: ((Distance / 35 km/l Mileage) * ₹140 Petrol Rate per Litre)
   // - Product Payload Weight Multiplier: (0.1 Kg mass payload * ₹5 per Kg baseline rate)
+  // - 20% Platform Commission
   // - Apply final Math.round() parsing function block wrapper onto the summation
   const dynamicDeliveryCalc = calculateDynamicDeliveryFee(distanceKm, 0.1);
   const deliveryCharge = cartItems.length > 0 ? dynamicDeliveryCalc.totalDeliveryFee : 0;
@@ -304,6 +307,31 @@ export const CartScreen: React.FC<CartScreenProps> = ({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
           {/* Left Column: Cart Items List */}
           <div className="lg:col-span-2 space-y-3">
+            {/* Single-Seller Hyperlocal Store Origin Indicator */}
+            {activeSeller && (
+              <div className="bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-2xl p-3 sm:p-3.5 flex items-center justify-between gap-3 shadow-xs">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-9 h-9 rounded-xl bg-orange-500 text-white flex items-center justify-center shrink-0 shadow-xs">
+                    <Store className="w-5 h-5" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="text-[10px] font-black uppercase tracking-wider text-orange-700">
+                      Single-Seller Hyperlocal Order
+                    </div>
+                    <div className="text-xs sm:text-sm font-black text-slate-900 truncate">
+                      {activeSeller.sellerName}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="inline-flex items-center gap-1 text-[11px] font-extrabold text-emerald-700 bg-emerald-100/80 px-2.5 py-1 rounded-full">
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                    <span>Direct Delivery</span>
+                  </span>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center justify-between text-xs font-bold text-slate-500 px-1">
               <span>Items in Cart ({cartItems.reduce((acc, i) => acc + (Number(i.quantity) || 1), 0)})</span>
               <span className="text-emerald-700 flex items-center gap-1 font-semibold text-[11px]">
@@ -461,6 +489,10 @@ export const CartScreen: React.FC<CartScreenProps> = ({
                     <span>Payload Multiplier (0.1 kg × ₹5):</span>
                     <span className="font-semibold text-slate-800">₹{dynamicDeliveryCalc.productPayloadMultiplier.toFixed(1)}</span>
                   </div>
+                  <div className="flex justify-between text-amber-900 font-medium">
+                    <span>Platform Commission (20%):</span>
+                    <span className="font-semibold text-amber-900">₹{dynamicDeliveryCalc.platformCommission.toFixed(1)}</span>
+                  </div>
                   <div className="border-t border-slate-200 pt-1 flex justify-between font-bold text-slate-900">
                     <span>Total Delivery Fee (Math.round):</span>
                     <span className="text-orange-600">₹{deliveryCharge}</span>
@@ -536,7 +568,7 @@ export const CartScreen: React.FC<CartScreenProps> = ({
             <button
               type="button"
               id="cart-proceed-checkout-btn"
-              disabled={!termsAccepted || cartItems.length === 0}
+              disabled={!termsAccepted || cartItems.length === 0 || subtotal < 200}
               onClick={() => onProceedToCheckout(cartItems, grandTotal, deliveryCharge)}
               className="w-full py-3.5 px-4 bg-orange-600 hover:bg-orange-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-black text-sm rounded-2xl transition shadow-md flex items-center justify-center gap-2 active:scale-98 disabled:cursor-not-allowed cursor-pointer"
             >
@@ -544,6 +576,19 @@ export const CartScreen: React.FC<CartScreenProps> = ({
               <span>Proceed to 100% Prepaid Checkout</span>
               <ArrowRight className="w-4 h-4" />
             </button>
+
+            {/* Minimum Order Value Warning */}
+            {subtotal < 200 && cartItems.length > 0 && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-2xl text-center space-y-1">
+                <p className="text-xs font-bold text-red-600 flex items-center justify-center gap-1.5">
+                  <AlertCircle className="w-4 h-4 text-red-600 shrink-0" />
+                  <span>Minimum order value must be ₹200 to place an order.</span>
+                </p>
+                <p className="text-[11px] text-red-500 font-medium">
+                  Current items subtotal: ₹{formatPrice(subtotal)} (Add ₹{formatPrice(200 - subtotal)} more to checkout)
+                </p>
+              </div>
+            )}
 
             {/* Trust Assurance Badge */}
             <div className="text-[10px] text-slate-400 text-center space-y-1 pt-1">

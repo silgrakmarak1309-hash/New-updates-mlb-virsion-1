@@ -71,6 +71,8 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
   const fulfillmentBadge = getCategoryFulfillmentBadge(listing.category_name, listing.title);
   const images = getListingImages(listing);
   const currentImage = images[selectedImageIndex] || images[0];
+  const listingPrice = Number(listing?.price) || 0;
+  const isUnderMinOrder = listingPrice < 200;
 
   const handlePrev = (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -393,13 +395,19 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
 
             {onOrderNow && (
               <button
+                type="button"
+                id="listing-modal-buy-now-btn"
+                disabled={isUnderMinOrder}
                 onClick={() => {
+                  if (isUnderMinOrder) return;
                   onClose();
                   onOrderNow(listing);
                 }}
-                className={`w-full py-3 px-3 bg-orange-600 hover:bg-orange-700 text-white font-black rounded-2xl text-center text-xs sm:text-sm transition shadow-md flex items-center justify-center gap-2 active:scale-98 cursor-pointer ${
-                  !onAddToCart ? 'sm:col-span-2' : ''
-                }`}
+                className={`w-full py-3 px-3 font-black rounded-2xl text-center text-xs sm:text-sm transition flex items-center justify-center gap-2 ${
+                  isUnderMinOrder
+                    ? 'bg-slate-200 text-slate-400 cursor-not-allowed border border-slate-300 shadow-none'
+                    : 'bg-orange-600 hover:bg-orange-700 text-white shadow-md active:scale-98 cursor-pointer'
+                } ${!onAddToCart ? 'sm:col-span-2' : ''}`}
               >
                 {fulfillmentBadge.type === 'self_pickup' ? (
                   <>
@@ -425,6 +433,19 @@ export const ListingDetailModal: React.FC<ListingDetailModalProps> = ({
               </button>
             )}
           </div>
+
+          {/* Task 3: Enforce ₹200 Minimum Order Value Warning */}
+          {isUnderMinOrder && onOrderNow && (
+            <div className="p-2.5 bg-red-50 border border-red-200 rounded-xl text-center space-y-0.5">
+              <p className="text-xs font-bold text-red-600 flex items-center justify-center gap-1.5">
+                <AlertTriangle className="w-3.5 h-3.5 text-red-600 shrink-0" />
+                <span>Minimum order value must be ₹200 to place an order.</span>
+              </p>
+              <p className="text-[11px] text-red-500 font-medium">
+                Add to cart and combine with other items to reach the ₹200 threshold.
+              </p>
+            </div>
+          )}
 
           <div className="flex flex-col sm:flex-row gap-2 sm:gap-3">
             {/* WhatsApp Action Button */}
