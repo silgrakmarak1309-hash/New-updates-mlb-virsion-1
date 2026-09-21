@@ -121,51 +121,53 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Vendor coordinates from listing
   const vendorCoords = getListingVendorCoordinates(listing);
+  const sellerLat = vendorCoords.latitude;
+  const sellerLng = vendorCoords.longitude;
 
   // Initialize and synchronise coordinates on mount or when address/listing changes
   useEffect(() => {
-    const rawBuyerLat = Number(currentUser?.buyer_latitude);
-    const rawBuyerLon = Number(currentUser?.buyer_longitude);
-    const hasValidBuyerCoords =
-      Number.isFinite(rawBuyerLat) &&
-      Number.isFinite(rawBuyerLon) &&
-      rawBuyerLat !== 0 &&
-      rawBuyerLon !== 0;
+    const sLat = Number(sellerLat);
+    const sLng = Number(sellerLng);
 
-    if (hasValidBuyerCoords) {
-      setBuyerLatitude(rawBuyerLat);
-      setBuyerLongitude(rawBuyerLon);
-      const calculatedDist = calculateHaversineDistanceKm(
-        rawBuyerLat,
-        rawBuyerLon,
-        vendorCoords.latitude,
-        vendorCoords.longitude
-      );
-      setDistanceKm(Number.isFinite(calculatedDist) && calculatedDist > 0 ? calculatedDist : 0.5);
+    if (currentUser?.buyer_latitude && currentUser?.buyer_longitude) {
+      const bLat = Number(currentUser.buyer_latitude);
+      const bLng = Number(currentUser.buyer_longitude);
+
+      setBuyerLatitude(bLat);
+      setBuyerLongitude(bLng);
+
+      const calculatedDist = calculateHaversineDistanceKm(bLat, bLng, sLat, sLng);
+      
+      if (!isNaN(calculatedDist)) {
+        setDistanceKm(calculatedDist);
+      }
+      
     } else if (deliveryAddress) {
       geocodeAddress(deliveryAddress, {
-        district: locationState.district,
-        block: locationState.block,
-        state: locationState.state,
+        district: locationState?.district || currentUser?.district,
+        block: locationState?.block || currentUser?.block,
+        state: locationState?.state || currentUser?.state || 'India',
       })
-        .then((coords) => {
-          if (coords && Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)) {
-            setBuyerLatitude(coords.latitude);
-            setBuyerLongitude(coords.longitude);
-            const calculatedDist = calculateHaversineDistanceKm(
-              coords.latitude,
-              coords.longitude,
-              vendorCoords.latitude,
-              vendorCoords.longitude
-            );
-            setDistanceKm(Number.isFinite(calculatedDist) && calculatedDist > 0 ? calculatedDist : 0.5);
+      .then((coords) => {
+        if (coords && coords.latitude && coords.longitude) {
+          const cLat = Number(coords.latitude);
+          const cLng = Number(coords.longitude);
+
+          setBuyerLatitude(cLat);
+          setBuyerLongitude(cLng);
+
+          const calculatedDist = calculateHaversineDistanceKm(cLat, cLng, sLat, sLng);
+          
+          if (!isNaN(calculatedDist)) {
+            setDistanceKm(calculatedDist);
           }
-        })
-        .catch((err) => {
-          console.warn('[CheckoutModal] Geocoding fallback applied:', err);
-        });
+        }
+      })
+      .catch((error) => {
+        console.error("Geocoding error:", error);
+      });
     }
-  }, [currentUser?.id, currentUser?.buyer_latitude, currentUser?.buyer_longitude, listing.id]);
+  }, [currentUser?.id, listing?.id, deliveryAddress, locationState, sellerLat, sellerLng]);
 
   // Permanent delivery address submission handler with geocoding and Supabase profile mutation
   const handleSavePermanentAddress = async (explicitAddress?: string) => {
