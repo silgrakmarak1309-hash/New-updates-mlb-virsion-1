@@ -79,14 +79,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   
   // Local Location Fields (State, District, Block, Village/Locality)
   const [locationState, setLocationState] = useState<LocalAddressState>({
-    state: currentUser?.state || 'Meghalaya',
-    district: currentUser?.district || 'West Garo Hills',
-    block: currentUser?.block || 'Rongram',
+    state: currentUser?.state || '',
+    district: currentUser?.district || '',
+    block: currentUser?.block || '',
     village: currentUser?.village || '',
   });
 
   const [deliveryAddress, setDeliveryAddress] = useState(
-    currentUser?.permanent_address || (currentUser?.city ? `${currentUser.city}, Meghalaya` : '')
+    currentUser?.permanent_address || currentUser?.city || ''
   );
   const [landmarkNotes, setLandmarkNotes] = useState('');
 
@@ -97,17 +97,24 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Delivery estimation for home delivery
   const [weightKg, setWeightKg] = useState<number>(() => {
-    if (typeof listing.weight === 'number' && listing.weight > 0) {
-      return Number((listing.weight / 1000).toFixed(2));
+    const rawWeight = Number(listing?.weight);
+    if (Number.isFinite(rawWeight) && rawWeight > 0) {
+      return Number((rawWeight / 1000).toFixed(2));
     }
-    return 3;
+    return 1;
   });
   const [distanceKm, setDistanceKm] = useState<number>(5);
   const [terrain, setTerrain] = useState<'Plain' | 'Hill (5km/L)'>('Hill (5km/L)');
 
   // Geocoded Coordinates & Permanent Address Saving State
-  const [buyerLatitude, setBuyerLatitude] = useState<number | undefined>(currentUser?.buyer_latitude);
-  const [buyerLongitude, setBuyerLongitude] = useState<number | undefined>(currentUser?.buyer_longitude);
+  const [buyerLatitude, setBuyerLatitude] = useState<number | undefined>(() => {
+    const lat = Number(currentUser?.buyer_latitude);
+    return Number.isFinite(lat) && lat !== 0 ? lat : undefined;
+  });
+  const [buyerLongitude, setBuyerLongitude] = useState<number | undefined>(() => {
+    const lon = Number(currentUser?.buyer_longitude);
+    return Number.isFinite(lon) && lon !== 0 ? lon : undefined;
+  });
   const [isSavingAddress, setIsSavingAddress] = useState(false);
   const [addressSavedSuccess, setAddressSavedSuccess] = useState(false);
   const [geocodingNotice, setGeocodingNotice] = useState<string | null>(null);
@@ -117,34 +124,48 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
   // Initialize and synchronise coordinates on mount or when address/listing changes
   useEffect(() => {
-    if (currentUser?.buyer_latitude && currentUser?.buyer_longitude) {
-      setBuyerLatitude(currentUser.buyer_latitude);
-      setBuyerLongitude(currentUser.buyer_longitude);
+    const rawBuyerLat = Number(currentUser?.buyer_latitude);
+    const rawBuyerLon = Number(currentUser?.buyer_longitude);
+    const hasValidBuyerCoords =
+      Number.isFinite(rawBuyerLat) &&
+      Number.isFinite(rawBuyerLon) &&
+      rawBuyerLat !== 0 &&
+      rawBuyerLon !== 0;
+
+    if (hasValidBuyerCoords) {
+      setBuyerLatitude(rawBuyerLat);
+      setBuyerLongitude(rawBuyerLon);
       const calculatedDist = calculateHaversineDistanceKm(
-        currentUser.buyer_latitude,
-        currentUser.buyer_longitude,
+        rawBuyerLat,
+        rawBuyerLon,
         vendorCoords.latitude,
         vendorCoords.longitude
       );
-      setDistanceKm(calculatedDist);
+      setDistanceKm(Number.isFinite(calculatedDist) && calculatedDist > 0 ? calculatedDist : 0.5);
     } else if (deliveryAddress) {
       geocodeAddress(deliveryAddress, {
         district: locationState.district,
         block: locationState.block,
         state: locationState.state,
-      }).then((coords) => {
-        setBuyerLatitude(coords.latitude);
-        setBuyerLongitude(coords.longitude);
-        const calculatedDist = calculateHaversineDistanceKm(
-          coords.latitude,
-          coords.longitude,
-          vendorCoords.latitude,
-          vendorCoords.longitude
-        );
-        setDistanceKm(calculatedDist);
-      });
+      })
+        .then((coords) => {
+          if (coords && Number.isFinite(coords.latitude) && Number.isFinite(coords.longitude)) {
+            setBuyerLatitude(coords.latitude);
+            setBuyerLongitude(coords.longitude);
+            const calculatedDist = calculateHaversineDistanceKm(
+              coords.latitude,
+              coords.longitude,
+              vendorCoords.latitude,
+              vendorCoords.longitude
+            );
+            setDistanceKm(Number.isFinite(calculatedDist) && calculatedDist > 0 ? calculatedDist : 0.5);
+          }
+        })
+        .catch((err) => {
+          console.warn('[CheckoutModal] Geocoding fallback applied:', err);
+        });
     }
-  }, [currentUser?.id, listing.id]);
+  }, [currentUser?.id, currentUser?.buyer_latitude, currentUser?.buyer_longitude, listing.id]);
 
   // Permanent delivery address submission handler with geocoding and Supabase profile mutation
   const handleSavePermanentAddress = async (explicitAddress?: string) => {
@@ -168,17 +189,20 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         state: locationState.state,
       });
 
-      setBuyerLatitude(parsedCoords.latitude);
-      setBuyerLongitude(parsedCoords.longitude);
+      const validLat = Number.isFinite(parsedCoords?.latitude) ? parsedCoords.latitude : 25.5141;
+      const validLon = Number.isFinite(parsedCoords?.longitude) ? parsedCoords.longitude : 90.2033;
+
+      setBuyerLatitude(validLat);
+      setBuyerLongitude(validLon);
 
       // Recompute dynamic distance with 0.5 km boundary floor
       const newDistance = calculateHaversineDistanceKm(
-        parsedCoords.latitude,
-        parsedCoords.longitude,
+        validLat,
+        validLon,
         vendorCoords.latitude,
         vendorCoords.longitude
       );
-      setDistanceKm(newDistance);
+      setDistanceKm(Number.isFinite(newDistance) && newDistance > 0 ? newDistance : 0.5);
 
       // 2. Execute Supabase mutation query to update the corresponding active profile entry in the database
       if (supabase && currentUser.id !== 'guest_user') {
@@ -186,8 +210,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
           .from('profiles')
           .update({
             permanent_address: addrToSave,
-            buyer_latitude: parsedCoords.latitude,
-            buyer_longitude: parsedCoords.longitude,
+            buyer_latitude: validLat,
+            buyer_longitude: validLon,
             state: locationState.state,
             district: locationState.district,
             block: locationState.block,
@@ -202,8 +226,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       // 3. Update in-memory user and localStorage cache
       currentUser.permanent_address = addrToSave;
-      currentUser.buyer_latitude = parsedCoords.latitude;
-      currentUser.buyer_longitude = parsedCoords.longitude;
+      currentUser.buyer_latitude = validLat;
+      currentUser.buyer_longitude = validLon;
       currentUser.state = locationState.state;
       currentUser.district = locationState.district;
       currentUser.block = locationState.block;
@@ -215,14 +239,14 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
 
       setAddressSavedSuccess(true);
       setGeocodingNotice(
-        `Geocoded: Lat ${parsedCoords.latitude.toFixed(4)}, Lon ${parsedCoords.longitude.toFixed(4)}`
+        `Geocoded: Lat ${validLat.toFixed(4)}, Lon ${validLon.toFixed(4)}`
       );
       setTimeout(() => {
         setAddressSavedSuccess(false);
         setGeocodingNotice(null);
       }, 4000);
 
-      return parsedCoords;
+      return { latitude: validLat, longitude: validLon };
     } catch (err: any) {
       console.error('[CheckoutModal] Failed to geocode and save address:', err);
       setGeocodingNotice('Geocoding fallback applied');
@@ -252,11 +276,15 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
   // - Fuel Operational Matrix Factor: ((Distance / 35 km/l Mileage) * ₹140 Petrol Rate per Litre)
   // - Product Payload Weight Multiplier: (0.1 Kg mass payload * ₹5 per Kg baseline rate)
   // - Apply final Math.round() parsing function block wrapper onto the summation
-  const dynamicDeliveryCalc = calculateDynamicDeliveryFee(distanceKm, 0.1);
-  const productPrice = Number(listing.price) || 0;
+  const safeDistanceKm = Number.isFinite(distanceKm) && distanceKm > 0 ? distanceKm : 0.5;
+  const safeWeightKg = Number.isFinite(weightKg) && weightKg > 0 ? weightKg : 0.1;
+  const dynamicDeliveryCalc = calculateDynamicDeliveryFee(safeDistanceKm, safeWeightKg);
+  const rawPrice = Number(listing?.price);
+  const productPrice = Number.isFinite(rawPrice) && rawPrice > 0 ? rawPrice : 0;
+  const rawDeliveryFee = Number(dynamicDeliveryCalc?.totalDeliveryFee);
   const deliveryFee =
     fulfillmentType === 'home_delivery' && !isHeavy
-      ? dynamicDeliveryCalc.totalDeliveryFee
+      ? (Number.isFinite(rawDeliveryFee) ? rawDeliveryFee : 0)
       : 0;
 
   const totalAmountToPay = productPrice + deliveryFee;
@@ -267,7 +295,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
     `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=upi://pay?pa=${encodeURIComponent(
       adminUpiId
     )}%26pn=MeriLocalBazaar%26am=${totalAmountToPay}%26cu=INR%26tn=${encodeURIComponent(
-      `Order ${listing.title.substring(0, 15)}`
+      `Order ${(listing?.title || 'Item').substring(0, 15)}`
     )}`;
 
   const handleCopyUpi = () => {
@@ -395,8 +423,8 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         delivery_fee: deliveryFee,
         total_fare: deliveryFee,
         total_paid: totalAmountToPay,
-        weight_kg: weightKg,
-        distance_km: distanceKm,
+        weight_kg: safeWeightKg,
+        distance_km: safeDistanceKm,
         terrain_type: terrain,
         app_commission: Math.round(deliveryFee * 0.2),
         partner_earning: Math.round(deliveryFee * 0.8),
@@ -406,10 +434,10 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
         payment_screenshot_url: screenshotUrl || undefined,
         is_heavy_item: isHeavy,
         fulfillment_type: fulfillmentType,
-        buyer_latitude: buyerLatitude,
-        buyer_longitude: buyerLongitude,
-        seller_latitude: vendorCoords.latitude,
-        seller_longitude: vendorCoords.longitude,
+        buyer_latitude: Number.isFinite(buyerLatitude) ? buyerLatitude : undefined,
+        buyer_longitude: Number.isFinite(buyerLongitude) ? buyerLongitude : undefined,
+        seller_latitude: Number.isFinite(vendorCoords.latitude) ? vendorCoords.latitude : 25.5141,
+        seller_longitude: Number.isFinite(vendorCoords.longitude) ? vendorCoords.longitude : 90.2033,
         seller_name: listing.seller_name || 'Verified Vendor',
         seller_phone: listing.phone || listing.whatsapp || '9876543210',
         status: 'pending',
@@ -767,15 +795,18 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                       )}
                     </div>
 
-                    {(buyerLatitude || buyerLongitude) && (
-                      <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-mono">
-                        <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
-                        <span>
-                          Buyer Geocode: Lat {Number(buyerLatitude).toFixed(4)}, Lon{' '}
-                          {Number(buyerLongitude).toFixed(4)}
-                        </span>
-                      </div>
-                    )}
+                    {Number.isFinite(buyerLatitude) &&
+                      Number.isFinite(buyerLongitude) &&
+                      buyerLatitude !== 0 &&
+                      buyerLongitude !== 0 && (
+                        <div className="flex items-center gap-1.5 mt-2 text-[11px] text-emerald-800 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 font-mono">
+                          <MapPin className="w-3 h-3 text-emerald-600 shrink-0" />
+                          <span>
+                            Buyer Geocode: Lat {Number(buyerLatitude).toFixed(4)}, Lon{' '}
+                            {Number(buyerLongitude).toFixed(4)}
+                          </span>
+                        </div>
+                      )}
                   </div>
 
                   {/* Dynamic Distance Vector & Fare Matrix Breakdown */}
@@ -785,7 +816,7 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <Navigation className="w-3.5 h-3.5 text-orange-500" /> Dynamic Haversine Vector
                       </span>
                       <span className="font-bold text-slate-900 bg-white px-2 py-0.5 rounded border border-slate-200">
-                        {distanceKm.toFixed(1)} km (Floor: 0.5 km)
+                        {safeDistanceKm.toFixed(1)} km (Floor: 0.5 km)
                       </span>
                     </div>
 
@@ -795,12 +826,12 @@ export const CheckoutModal: React.FC<CheckoutModalProps> = ({
                         <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.baseFlatDriverFee}</span>
                       </div>
                       <div className="flex justify-between">
-                        <span>Fuel Factor (({distanceKm.toFixed(1)} km / 35 km/l) × ₹140):</span>
-                        <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.fuelOperationalFactor.toFixed(1)}</span>
+                        <span>Fuel Factor (({safeDistanceKm.toFixed(1)} km / 35 km/l) × ₹140):</span>
+                        <span className="font-semibold text-slate-700">₹{(dynamicDeliveryCalc.fuelOperationalFactor ?? 0).toFixed(1)}</span>
                       </div>
                       <div className="flex justify-between">
                         <span>Payload Multiplier (0.1 kg × ₹5/kg):</span>
-                        <span className="font-semibold text-slate-700">₹{dynamicDeliveryCalc.productPayloadMultiplier.toFixed(1)}</span>
+                        <span className="font-semibold text-slate-700">₹{(dynamicDeliveryCalc.productPayloadMultiplier ?? 0).toFixed(1)}</span>
                       </div>
                       <div className="border-t border-slate-200 pt-1 flex justify-between font-bold text-slate-800">
                         <span>Delivery Charge (Math.round):</span>

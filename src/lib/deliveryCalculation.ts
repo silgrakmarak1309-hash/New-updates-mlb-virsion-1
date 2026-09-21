@@ -84,13 +84,13 @@ export async function geocodeAddress(
   const cleanAddr = (address || '').trim();
   const district = (extraContext?.district || '').trim();
   const block = (extraContext?.block || '').trim();
-  const state = (extraContext?.state || 'Meghalaya').trim();
+  const state = (extraContext?.state || '').trim();
 
   // 1. Try public Nominatim OpenStreetMap geocoder API
-  if (cleanAddr) {
+  if (cleanAddr || district || block || state) {
     try {
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 2000);
+      const timeoutId = setTimeout(() => controller.abort(), 2500);
       const queryParts = [cleanAddr, block, district, state, 'India'].filter(Boolean);
       const query = queryParts.join(', ');
 
@@ -112,7 +112,7 @@ export async function geocodeAddress(
         if (Array.isArray(data) && data.length > 0) {
           const lat = parseFloat(data[0].lat);
           const lon = parseFloat(data[0].lon);
-          if (!isNaN(lat) && !isNaN(lon)) {
+          if (Number.isFinite(lat) && Number.isFinite(lon) && !isNaN(lat) && !isNaN(lon)) {
             return {
               latitude: Number(lat.toFixed(6)),
               longitude: Number(lon.toFixed(6)),
@@ -125,9 +125,9 @@ export async function geocodeAddress(
     }
   }
 
-  // 2. Regional fallback: Match district, town, or block
+  // 2. Regional fallback: Match district, town, block, or state
   let baseCoords = DEFAULT_STORE_VENDOR_COORDINATES;
-  const combinedText = `${cleanAddr} ${block} ${district}`.toLowerCase();
+  const combinedText = `${cleanAddr} ${block} ${district} ${state}`.toLowerCase();
 
   for (const [name, coords] of Object.entries(MEGHALAYA_COORDINATES)) {
     if (combinedText.includes(name.toLowerCase())) {
@@ -145,9 +145,12 @@ export async function geocodeAddress(
   const latOffset = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 0.03; // ~1-2km offset
   const lonOffset = ((Math.abs(hash >> 3) % 1000) / 1000 - 0.5) * 0.03;
 
+  const finalLat = Number((baseCoords.latitude + latOffset).toFixed(6));
+  const finalLon = Number((baseCoords.longitude + lonOffset).toFixed(6));
+
   return {
-    latitude: Number((baseCoords.latitude + latOffset).toFixed(6)),
-    longitude: Number((baseCoords.longitude + lonOffset).toFixed(6)),
+    latitude: Number.isFinite(finalLat) ? finalLat : 25.5141,
+    longitude: Number.isFinite(finalLon) ? finalLon : 90.2033,
   };
 }
 
@@ -170,6 +173,10 @@ export function calculateHaversineDistanceKm(
 
   // If coordinates are invalid or zero, return boundary floor 0.5 km
   if (
+    !Number.isFinite(bLat) ||
+    !Number.isFinite(bLon) ||
+    !Number.isFinite(sLat) ||
+    !Number.isFinite(sLon) ||
     isNaN(bLat) ||
     isNaN(bLon) ||
     isNaN(sLat) ||
@@ -197,6 +204,9 @@ export function calculateHaversineDistanceKm(
   const rawDistance = R * c;
 
   // Enforce an absolute boundary floor value of 0.5 km
+  if (!Number.isFinite(rawDistance) || isNaN(rawDistance)) {
+    return 0.5;
+  }
   const boundaryFlooredDistance = Math.max(0.5, rawDistance);
   return Number(boundaryFlooredDistance.toFixed(2));
 }
@@ -214,23 +224,26 @@ export function calculateDynamicDeliveryFee(
   payloadWeightKg: number = 0.1
 ): DynamicDeliveryFeeCalculation {
   // Boundary floor enforcement
-  const distance = Math.max(0.5, Number(distanceKm) || 0.5);
+  const rawDist = Number(distanceKm);
+  const distance = Number.isFinite(rawDist) && rawDist >= 0.5 ? rawDist : 0.5;
 
   // 1. Base Flat Driver Service Fee: ₹20
   const baseFlatDriverFee = 20;
 
   // 2. Fuel Operational Matrix Factor: ((Distance / 35 km/l Mileage) * ₹140 Petrol Rate per Litre)
-  const fuelOperationalFactor = (distance / 35) * 140;
+  const rawFuel = (distance / 35) * 140;
+  const fuelOperationalFactor = Number.isFinite(rawFuel) ? rawFuel : 2;
 
   // 3. Product Payload Weight Multiplier: (0.1 Kg mass payload * ₹5 per Kg baseline rate)
-  const payloadMass = payloadWeightKg > 0 ? payloadWeightKg : 0.1;
+  const rawWeight = Number(payloadWeightKg);
+  const payloadMass = Number.isFinite(rawWeight) && rawWeight > 0 ? rawWeight : 0.1;
   const productPayloadMultiplier = payloadMass * 5;
 
   // 4. Summation
   const rawSum = baseFlatDriverFee + fuelOperationalFactor + productPayloadMultiplier;
 
   // 5. Final Math.round() parsing wrapper
-  const totalDeliveryFee = Math.round(rawSum);
+  const totalDeliveryFee = Math.round(Number.isFinite(rawSum) ? rawSum : 20);
 
   return {
     baseFlatDriverFee,
@@ -250,12 +263,12 @@ export function getListingVendorCoordinates(listing?: any): Coordinates {
   const lat = Number(listing.seller_latitude ?? listing.latitude);
   const lon = Number(listing.seller_longitude ?? listing.longitude);
 
-  if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+  if (Number.isFinite(lat) && Number.isFinite(lon) && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
     return { latitude: lat, longitude: lon };
   }
 
   // Location-based fallback
-  const locName = `${listing.district || ''} ${listing.location_name || ''} ${listing.village || ''}`.toLowerCase();
+  const locName = `${listing.district || ''} ${listing.location_name || ''} ${listing.village || ''} ${listing.state_name || ''}`.toLowerCase();
   for (const [name, coords] of Object.entries(MEGHALAYA_COORDINATES)) {
     if (locName.includes(name.toLowerCase())) {
       return coords;
@@ -274,12 +287,12 @@ export function getUserBuyerCoordinates(user?: any): Coordinates {
   const lat = Number(user.buyer_latitude ?? user.latitude);
   const lon = Number(user.buyer_longitude ?? user.longitude);
 
-  if (!isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
+  if (Number.isFinite(lat) && Number.isFinite(lon) && !isNaN(lat) && !isNaN(lon) && lat !== 0 && lon !== 0) {
     return { latitude: lat, longitude: lon };
   }
 
   // Regional location match from user profile
-  const userLoc = `${user.district || ''} ${user.permanent_address || ''} ${user.village || ''} ${user.city || ''}`.toLowerCase();
+  const userLoc = `${user.district || ''} ${user.permanent_address || ''} ${user.village || ''} ${user.city || ''} ${user.state || ''}`.toLowerCase();
   for (const [name, coords] of Object.entries(MEGHALAYA_COORDINATES)) {
     if (userLoc.includes(name.toLowerCase())) {
       return coords;
